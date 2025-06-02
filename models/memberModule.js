@@ -14,6 +14,11 @@ const memberSchema = new mongoose.Schema(
     email: { type: String, unique: true },
     phoneNumber: String,
     password: String,
+    paystackSubscriptionCode: String,
+    paystackEmailToken: String,
+    paystackAuthorizationCode: String,
+    paystackCustomerCode: String,
+    paystackPlanID: String,
   },
   { timestamps: true }
 );

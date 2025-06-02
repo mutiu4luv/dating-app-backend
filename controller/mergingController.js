@@ -1,0 +1,45 @@
+const Member = require("../models/memberModule.js");
+const Merge = require("../models/mergeModel.js");
+
+exports.mergeMembers = async (req, res) => {
+  const { memberId1, memberId2 } = req.body;
+
+  try {
+    const member1 = await Member.findById(memberId1);
+    const member2 = await Member.findById(memberId2);
+
+    if (!member1 || !member2) {
+      return res.status(404).json({ message: "One or both members not found" });
+    }
+
+    // Only match based on relationship type
+    const compatible = member1.relationshipType === member2.relationshipType;
+
+    if (!compatible) {
+      return res.status(400).json({ message: "Members are not compatible" });
+    }
+    const alreadyMerged = await Merge.findOne({
+      $or: [
+        { member1: member1._id, member2: member2._id },
+        { member1: member2._id, member2: member1._id },
+      ],
+    });
+    if (alreadyMerged) {
+      return res
+        .status(400)
+        .json({ message: "These members are already merged" });
+    }
+
+    const newMerge = await Merge.create({
+      member1: member1._id,
+      member2: member2._id,
+      compatibilityScore: 100,
+    });
+
+    res.status(200).json({ message: "Members matched", match: newMerge });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error merging members", error: err.message });
+  }
+};
