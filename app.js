@@ -48,7 +48,6 @@ const subscriptionRouter = require("./router/subcriptionRouter.js");
 
 const app = express();
 app.use(cors());
-
 app.use(express.json());
 app.use("/api/user", memberRouter);
 app.use("/api/merge", mergeMembers);

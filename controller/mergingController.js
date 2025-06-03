@@ -3,7 +3,12 @@ const Merge = require("../models/mergeModel.js");
 
 exports.mergeMembers = async (req, res) => {
   const { memberId1, memberId2 } = req.body;
-
+  if (!memberId1 || !memberId2) {
+    return res.status(400).json({ message: "Member IDs are required" });
+  }
+  if (memberId1 === memberId2) {
+    return res.status(400).json({ message: "Cannot merge the same member" });
+  }
   try {
     const member1 = await Member.findById(memberId1);
     const member2 = await Member.findById(memberId2);
