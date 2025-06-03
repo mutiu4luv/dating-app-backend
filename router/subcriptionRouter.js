@@ -5,7 +5,7 @@ const {
   getCustomerPortal,
 } = require("../controller/subscriptionController");
 const router = express.Router();
-router.post("/create/:id", protect, createSubscription);
+router.post("/create/:plan/:id", protect, createSubscription);
 router.post("/portal/:id", protect, getCustomerPortal);
 
 module.exports = router;
