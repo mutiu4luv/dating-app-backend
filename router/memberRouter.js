@@ -8,6 +8,7 @@ const {
   getMemberById,
   deleteMember,
   updateMember,
+  getMatchesByRelationshipType,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 // const { authenticate } = require("../middleware/auth.js");
@@ -19,5 +20,6 @@ router.get("/", protect, getAllMembers);
 router.get("/:id", protect, getMemberById);
 router.delete("/:id", protect, deleteMember);
 router.put("/:id", protect, updateMember);
+router.get("/matches/:id", protect, getMatchesByRelationshipType);
 
 module.exports = router;
