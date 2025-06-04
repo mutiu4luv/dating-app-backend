@@ -9,7 +9,7 @@ exports.register = async (req, res) => {
   const { username, email, password, ...rest } = req.body;
   let photoUrl = "";
   if (req.file) {
-    photoUrl = `/uploads/${req.file.filename}`; // URL to access the photo
+    photoUrl = req.file.path; // Cloudinary returns the hosted URL here
   }
 
   try {
@@ -22,6 +22,7 @@ exports.register = async (req, res) => {
       username,
       email,
       password: hashed,
+      photo: photoUrl,
     });
 
     const token = generateToken(member._id);
