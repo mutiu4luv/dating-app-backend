@@ -1,23 +1,54 @@
+// const mongoose = require("mongoose");
+
+// const memberSchema = new mongoose.Schema(
+//   {
+//     photo: String,
+//     name: String,
+//     age: Number,
+//     gender: String,
+//     location: String,
+//     occupation: String,
+//     maritalStatus: String,
+//     relationshipType: String,
+//     username: { type: String, unique: true },
+//     email: { type: String, unique: true },
+//     phoneNumber: String,
+//     transactionAmount: Number,
+//     transactionStatus: String,
+//     transactionReference: String,
+//     authorizationUrl: String,
+//     password: String,
+//     paystackSubscriptionCode: String,
+//     paystackEmailToken: String,
+//     paystackAuthorizationCode: String,
+//     paystackCustomerCode: String,
+//     paystackPlanID: String,
+//   },
+//   { timestamps: true }
+// );
+
+// module.exports = mongoose.model("Member", memberSchema);
+
 const mongoose = require("mongoose");
 
 const memberSchema = new mongoose.Schema(
   {
-    photo: String,
-    name: String,
-    age: Number,
-    gender: String,
-    location: String,
-    occupation: String,
-    maritalStatus: String,
-    relationshipType: String,
-    username: { type: String, unique: true },
-    email: { type: String, unique: true },
-    phoneNumber: String,
+    photo: { type: String, required: true },
+    name: { type: String, required: true },
+    age: { type: Number, required: true },
+    gender: { type: String, required: true },
+    location: { type: String, required: true },
+    occupation: { type: String, required: true },
+    maritalStatus: { type: String, required: true },
+    relationshipType: { type: String, required: true },
+    username: { type: String, unique: true, required: true },
+    email: { type: String, unique: true, required: true },
+    phoneNumber: { type: String, required: true },
+    password: { type: String, required: true },
     transactionAmount: Number,
     transactionStatus: String,
     transactionReference: String,
     authorizationUrl: String,
-    password: String,
     paystackSubscriptionCode: String,
     paystackEmailToken: String,
     paystackAuthorizationCode: String,

@@ -103,16 +103,24 @@ exports.updateMember = async (req, res) => {
 
 exports.getMatchesByRelationshipType = async (req, res) => {
   try {
-    const userId = req.params.id; // or req.params.id if you use params
+    const userId = req.params.id;
     const currentUser = await Member.findById(userId);
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    // Find other users with the same relationshipType, excluding the current user
+    const relType = currentUser.relationshipType.toLowerCase();
+    let genderQuery = {};
+    if (["gay", "lesbian"].includes(relType)) {
+      genderQuery = { gender: currentUser.gender };
+    } else {
+      genderQuery = {
+        gender: currentUser.gender === "male" ? "female" : "male",
+      };
+    }
     const matches = await Member.find({
       relationshipType: currentUser.relationshipType,
       _id: { $ne: currentUser._id },
+      ...genderQuery,
     });
 
     res.status(200).json({ matches });
