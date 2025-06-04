@@ -38,7 +38,16 @@ exports.mergeMembers = async (req, res) => {
     const newMerge = await Merge.create({
       member1: member1._id,
       member2: member2._id,
+
+      member1Name: member1.name,
+      relationshipType: member1.relationshipType,
+      mergedAt: new Date(),
       compatibilityScore: 100,
+      member1Email: member1.email,
+      member1Phone: member1.phoneNumber,
+      member2Name: member2.name,
+      member2Email: member2.email,
+      member2Phone: member2.phoneNumber,
     });
 
     res.status(200).json({ message: "Members matched", match: newMerge });
