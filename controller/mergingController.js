@@ -3,6 +3,7 @@ const Merge = require("../models/mergeModel.js");
 
 exports.mergeMembers = async (req, res) => {
   const { memberId1, memberId2 } = req.body;
+
   if (!memberId1 || !memberId2) {
     return res.status(400).json({ message: "Member IDs are required" });
   }
@@ -10,6 +11,8 @@ exports.mergeMembers = async (req, res) => {
     return res.status(400).json({ message: "Cannot merge the same member" });
   }
   try {
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
     const member1 = await Member.findById(memberId1);
     const member2 = await Member.findById(memberId2);
 
@@ -52,6 +55,8 @@ exports.mergeMembers = async (req, res) => {
 
     res.status(200).json({ message: "Members matched", match: newMerge });
   } catch (err) {
+    console.error(err); // <--- log the real error
+
     res
       .status(500)
       .json({ message: "Error merging members", error: err.message });
