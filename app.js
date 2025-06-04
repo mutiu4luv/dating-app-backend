@@ -36,7 +36,7 @@
 //     console.log("database not connected");
 //   });
 
-require("dotenv").config(); // <-- Load env variables FIRST
+require("dotenv").config();
 
 const express = require("express");
 const { default: mongoose } = require("mongoose");
@@ -47,6 +47,7 @@ const { paystackWebhookHandler } = require("./webhooks/paystack.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
 
 const app = express();
+app.use("/uploads", express.static("uploads"));
 app.use(cors());
 app.use(express.json());
 app.use("/api/user", memberRouter);

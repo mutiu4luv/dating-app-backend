@@ -7,6 +7,10 @@ const generateToken = (id) =>
 
 exports.register = async (req, res) => {
   const { username, email, password, ...rest } = req.body;
+  let photoUrl = "";
+  if (req.file) {
+    photoUrl = `/uploads/${req.file.filename}`; // URL to access the photo
+  }
 
   try {
     const exists = await Member.findOne({ email });
