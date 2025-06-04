@@ -50,8 +50,9 @@ const app = express();
 app.use("/uploads", express.static("uploads"));
 app.use(cors());
 app.use("/api/user", memberRouter);
-app.use("/api/merge", mergeMembers);
 app.use(express.json()); // <-- safe to use after file upload routes
+app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
+app.use("/api/merge", mergeMembers);
 
 // app.use("/api/webhook/paystack", paystackWebhookHandler);
 app.post("/api/webhook/paystack", paystackWebhookHandler);
