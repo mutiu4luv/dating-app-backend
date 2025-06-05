@@ -126,18 +126,18 @@ exports.getMembersByRelationshipType = async (req, res) => {
     }
 
     const relType = (currentUser.relationshipType || "").toLowerCase();
-    // List of types that should match opposite gender
+    const userGender = (currentUser.gender || "").toLowerCase();
     const oppositeGenderTypes = ["marriage", "friendship", "dating"];
     let genderQuery = {};
 
     if (oppositeGenderTypes.includes(relType)) {
-      // Opposite gender for these types
+      // Opposite gender for these types (case-insensitive)
       genderQuery = {
-        gender: currentUser.gender.toLowerCase() === "male" ? "Female" : "Male",
+        gender: userGender === "male" ? /female/i : /male/i,
       };
     } else {
-      // Same gender for all other types
-      genderQuery = { gender: currentUser.gender };
+      // Same gender for all other types (case-insensitive)
+      genderQuery = { gender: new RegExp(`^${userGender}$`, "i") };
     }
 
     const matches = await Member.find({
