@@ -49,14 +49,18 @@ const subscriptionRouter = require("./router/subcriptionRouter.js");
 const app = express();
 app.use("/uploads", express.static("uploads"));
 app.use(cors());
-app.use("/api/user", memberRouter);
-app.use(express.json()); // <-- safe to use after file upload routes
-app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-app.use("/api/merge", mergeMembers);
 
-// app.use("/api/webhook/paystack", paystackWebhookHandler);
+app.use(express.json()); // <-- move these up!
+app.use(express.urlencoded({ extended: true }));
+
+app.use("/api/user", memberRouter);
+app.use("/api/merge", mergeMembers);
 app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/subscription", subscriptionRouter);
+
+app.get("/", (req, res) => {
+  res.send("Hello Victor, welcome to whoba Ogo foundation");
+});
 
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to whoba Ogo foundation");
