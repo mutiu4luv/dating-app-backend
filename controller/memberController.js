@@ -35,6 +35,17 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
+  console.log("Login request body:", req.body);
+  if (!req.body.email || !req.body.password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+  console.log("Login request body after check:", req.body);
+  if (req.body.email === "" || req.body.password === "") {
+    return res
+      .status(400)
+      .json({ message: "Email and password cannot be empty" });
+  }
+  console.log("Login request body after empty check:", req.body);
   const { email, password } = req.body;
 
   try {
