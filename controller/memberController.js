@@ -117,22 +117,29 @@ exports.updateMember = async (req, res) => {
   }
 };
 
-exports.getMatchesByRelationshipType = async (req, res) => {
+exports.getMembersByRelationshipType = async (req, res) => {
   try {
     const userId = req.params.id;
     const currentUser = await Member.findById(userId);
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
-    const relType = currentUser.relationshipType.toLowerCase();
+
+    const relType = (currentUser.relationshipType || "").toLowerCase();
+    // List of types that should match opposite gender
+    const oppositeGenderTypes = ["marriage", "friendship", "dating"];
     let genderQuery = {};
-    if (["gay", "lesbian"].includes(relType)) {
-      genderQuery = { gender: currentUser.gender };
-    } else {
+
+    if (oppositeGenderTypes.includes(relType)) {
+      // Opposite gender for these types
       genderQuery = {
-        gender: currentUser.gender === "male" ? "female" : "male",
+        gender: currentUser.gender.toLowerCase() === "male" ? "Female" : "Male",
       };
+    } else {
+      // Same gender for all other types
+      genderQuery = { gender: currentUser.gender };
     }
+
     const matches = await Member.find({
       relationshipType: currentUser.relationshipType,
       _id: { $ne: currentUser._id },
@@ -144,3 +151,55 @@ exports.getMatchesByRelationshipType = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+// exports.getMatchesByLocation = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+//     const currentUser = await Member.findById(userId);
+//     if (!currentUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const matches = await Member.find({
+//       location: currentUser.location,
+//       _id: { $ne: currentUser._id },
+//     });
+
+//     res.status(200).json({ matches });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+// exports.getMatchesByOccupation = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+//     const currentUser = await Member.findById(userId);
+//     if (!currentUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const matches = await Member.find({
+//       occupation: currentUser.occupation,
+//       _id: { $ne: currentUser._id },
+//     });
+
+//     res.status(200).json({ matches });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+// exports.getMatchesByAge = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+//     const currentUser = await Member.findById(userId);
+//     if (!currentUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const ageRange = [currentUser.age - 5, currentUser.age + 5];
+//     const matches = await Member.find({
+//       age: { $gte: ageRange[0], $lte: ageRange[1] },
+//       _id: { $ne: currentUser._id },
+//     });
+
+//     res.status(200).json({ matches });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };

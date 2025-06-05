@@ -8,7 +8,7 @@ const {
   getMemberById,
   deleteMember,
   updateMember,
-  getMatchesByRelationshipType,
+  getMembersByRelationshipType,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -21,6 +21,6 @@ router.get("/", protect, getAllMembers);
 router.get("/:id", protect, getMemberById);
 router.delete("/:id", protect, deleteMember);
 router.put("/:id", protect, updateMember);
-router.get("/matches/:id", protect, getMatchesByRelationshipType);
+router.get("/merge/:id", protect, getMembersByRelationshipType);
 
 module.exports = router;
