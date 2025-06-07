@@ -9,7 +9,7 @@ exports.register = async (req, res) => {
   const { username, email, password, ...rest } = req.body;
   let photoUrl = "";
   if (req.file) {
-    photoUrl = req.file.path; // Cloudinary returns the hosted URL here
+    photoUrl = req.file.path;
   }
 
   try {
@@ -17,17 +17,23 @@ exports.register = async (req, res) => {
     if (exists) return res.status(400).json({ message: "Email already used" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const member = await Member.create({
+
+    // Convert fields to correct types
+    const memberData = {
       ...rest,
+      age: Number(rest.age), // convert age to number
       username,
       email,
       password: hashed,
       photo: photoUrl,
-    });
+    };
+
+    const member = await Member.create(memberData);
 
     const token = generateToken(member._id);
     res.status(201).json({ member, token });
   } catch (err) {
+    console.error("Registration error:", err); // Add this for debugging
     res
       .status(500)
       .json({ message: "Error registering user", error: err.message });
