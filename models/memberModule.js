@@ -33,7 +33,7 @@ const mongoose = require("mongoose");
 
 const memberSchema = new mongoose.Schema(
   {
-    photo: { type: String, required: true },
+    photo: { type: String, required: false },
     name: { type: String, required: true },
     age: { type: Number, required: true },
     gender: { type: String, required: true },

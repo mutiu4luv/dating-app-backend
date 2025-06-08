@@ -20,6 +20,8 @@ exports.register = async (req, res) => {
     password,
     description,
   } = req.body;
+  console.log("req.body:", req.body);
+  console.log("req.file:", req.file);
 
   let photoUrl = "";
   if (req.file) {

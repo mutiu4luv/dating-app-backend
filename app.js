@@ -70,10 +70,15 @@ app.listen(process.env.PORT, () => {
   console.log("server is running in port 7000");
 });
 
+// mongoose
+//   .connect(process.env.MONGO_URI)
+//   .then(() => {
+//     console.log("database connected");
+//   })
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("database connected");
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 90000, // 30 seconds
+    socketTimeoutMS: 95000, // 45 seconds
   })
   .catch(() => {
     console.log("database not connected");
