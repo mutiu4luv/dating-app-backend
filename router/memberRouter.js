@@ -12,7 +12,6 @@ const {
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
-// const { authenticate } = require("../middleware/auth.js");
 
 router.post("/register", upload.single("photo"), register);
 router.post("/login", login);
