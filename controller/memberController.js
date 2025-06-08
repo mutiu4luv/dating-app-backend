@@ -3,10 +3,24 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 
 const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "10m" });
 
 exports.register = async (req, res) => {
-  const { username, email, password, ...rest } = req.body;
+  const {
+    name,
+    age,
+    gender,
+    location,
+    occupation,
+    maritalStatus,
+    relationshipType,
+    username,
+    email,
+    phoneNumber,
+    password,
+    description,
+  } = req.body;
+
   let photoUrl = "";
   if (req.file) {
     photoUrl = req.file.path;
@@ -18,22 +32,26 @@ exports.register = async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // Convert fields to correct types
-    const memberData = {
-      ...rest,
-      age: Number(rest.age), // convert age to number
+    const member = await Member.create({
+      photo: photoUrl,
+      name,
+      age: Number(age), // convert to number
+      gender,
+      location,
+      occupation,
+      maritalStatus,
+      relationshipType,
       username,
       email,
+      phoneNumber,
       password: hashed,
-      photo: photoUrl,
-    };
-
-    const member = await Member.create(memberData);
+      description,
+    });
 
     const token = generateToken(member._id);
     res.status(201).json({ member, token });
   } catch (err) {
-    console.error("Registration error:", err); // Add this for debugging
+    console.error("Registration error:", err);
     res
       .status(500)
       .json({ message: "Error registering user", error: err.message });
