@@ -62,3 +62,27 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Error merging members", error: err.message });
   }
 };
+
+exports.getMergeStatus = async (req, res) => {
+  const { userId, matchId } = req.query;
+  if (!userId || !matchId) {
+    return res.status(400).json({ message: "userId and matchId required" });
+  }
+  try {
+    const merge = await Merge.findOne({
+      $or: [
+        { member1: userId, member2: matchId },
+        { member1: matchId, member2: userId },
+      ],
+    });
+    if (!merge) {
+      return res.json({ hasPaid: false, email: "" });
+    }
+    // Return actual email if needed
+    res.json({ hasPaid: true, email: merge.member1Email || "" });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error checking merge status", error: err.message });
+  }
+};

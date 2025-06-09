@@ -45,6 +45,7 @@ const memberRouter = require("./router/memberRouter.js");
 const { mergeMembers } = require("./controller/mergingController.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
+const mergeRouter = require("./router/merginRouter.js");
 
 const app = express();
 app.use("/uploads", express.static("uploads"));
@@ -66,6 +67,7 @@ app.use("/api/user", memberRouter);
 app.use("/api/merge", mergeMembers);
 app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/subscription", subscriptionRouter);
+app.use("/merge", mergeRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to whoba Ogo foundation");
