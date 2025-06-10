@@ -64,15 +64,15 @@ exports.mergeMembers = async (req, res) => {
 };
 
 exports.getMergeStatus = async (req, res) => {
-  const { userId, matchId } = req.query;
-  if (!userId || !matchId) {
-    return res.status(400).json({ message: "userId and matchId required" });
+  const { member1, member2 } = req.query;
+  if (!member1 || !member2) {
+    return res.status(400).json({ message: "member1 and member2 required" });
   }
   try {
     const merge = await Merge.findOne({
       $or: [
-        { member1: userId, member2: matchId },
-        { member1: matchId, member2: userId },
+        { member1: member1, member2: member2 },
+        { member1: member2, member2: member1 },
       ],
     });
     if (!merge) {
