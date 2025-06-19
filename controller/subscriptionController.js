@@ -1,6 +1,102 @@
 const { config } = require("../config");
 const Member = require("../models/memberModule");
 const queries = require("../queries/subscriptionQuery");
+const axios = require("axios");
+
+// exports.createSubscription = async (req, res) => {
+//   const subscriptionTier = req.params.plan;
+//   const id = req.params.id;
+
+//   if (!id) {
+//     return res.status(400).json({
+//       message: "Failed to fetch ID: id not found in context",
+//       hasError: true,
+//     });
+//   }
+
+//   try {
+//     const user = await Member.findById(id);
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         hasError: true,
+//       });
+//     }
+//     console.log("Available plans:", Object.keys(config.subscriptionTiers));
+//     console.log("Requested plan:", subscriptionTier);
+
+//     const tier = config.subscriptionTiers[subscriptionTier];
+
+//     if (!tier) {
+//       return res.status(400).json({
+//         message: "Invalid subscription tier type in context",
+//         hasError: true,
+//       });
+//     }
+
+//     // If user is already subscribed to this tier, you may want to prevent duplicate subscriptions
+//     if (
+//       user.paystackSubscriptionCode &&
+//       user.subscriptionTier === subscriptionTier
+//     ) {
+//       return res.status(400).json({
+//         message: "User is already subscribed to this tier.",
+//         hasError: true,
+//       });
+//     }
+
+//     if (subscriptionTier === "Free") {
+//       try {
+//         await queries.cancelSubscription(
+//           user.paystackSubscriptionCode,
+//           user.paystackEmailToken,
+//           user.paystackAuthorizationCode
+//         );
+
+//         // Optionally, clear user's subscription fields
+//         user.paystackSubscriptionCode = "";
+//         user.paystackAuthorizationCode = "";
+//         user.paystackStatus = "";
+//         user.paystackCustomerCode = "";
+//         user.paystackEmailToken = "";
+//         user.subscriptionTier = "Free";
+//         await user.save();
+
+//         return res.status(200).json({
+//           hasError: false,
+//           message: "Subscription cancelled successfully.",
+//         });
+//       } catch (err) {
+//         return res.status(500).json({
+//           message: err.message,
+//           hasError: true,
+//         });
+//       }
+//     }
+
+//     console.log("Tier object:", tier);
+//     // Create a new checkout session for paid plans
+//     const url = await queries.createCheckoutSession(
+//       user.email,
+//       tier.paystackPlanID,
+//       tier.price
+//     );
+
+//     return res.status(200).json({
+//       hasError: false,
+//       data: url,
+//       message:
+//         "Checkout session created. Complete payment to activate subscription.",
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       message: "Failed to fetch user: " + err.message,
+//       hasError: true,
+//     });
+//   }
+// };
+
+const dayjs = require("dayjs"); // use for date calculations
 
 exports.createSubscription = async (req, res) => {
   const subscriptionTier = req.params.plan;
@@ -21,9 +117,8 @@ exports.createSubscription = async (req, res) => {
         hasError: true,
       });
     }
-    console.log("Available plans:", Object.keys(config.subscriptionTiers));
-    console.log("Requested plan:", subscriptionTier);
 
+    // Get plan info
     const tier = config.subscriptionTiers[subscriptionTier];
 
     if (!tier) {
@@ -33,17 +128,41 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // If user is already subscribed to this tier, you may want to prevent duplicate subscriptions
+    // Check expiration and reset if expired
+    const now = new Date();
+    if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < now) {
+      // Subscription expired — reset everything
+      user.paystackSubscriptionCode = "";
+      user.paystackAuthorizationCode = "";
+      user.paystackStatus = "";
+      user.paystackCustomerCode = "";
+      user.paystackEmailToken = "";
+      user.subscriptionTier = "Free";
+      user.mergeCountThisCycle = 0;
+      user.subscriptionExpiresAt = null;
+      await user.save();
+    }
+
+    // Prevent re-subscription if still valid and merge limit not reached
+    const tierLimits = {
+      Basic: 5,
+      Standard: 10,
+      Premium: Infinity,
+    };
+
     if (
-      user.paystackSubscriptionCode &&
-      user.subscriptionTier === subscriptionTier
+      user.subscriptionTier === subscriptionTier &&
+      user.subscriptionExpiresAt &&
+      user.subscriptionExpiresAt > now &&
+      user.mergeCountThisCycle >= tierLimits[subscriptionTier]
     ) {
       return res.status(400).json({
-        message: "User is already subscribed to this tier.",
         hasError: true,
+        message: `You've reached your maximum ${subscriptionTier} plan merges. Wait for your subscription to expire before subscribing again.`,
       });
     }
 
+    // Handle Free tier (cancel existing)
     if (subscriptionTier === "Free") {
       try {
         await queries.cancelSubscription(
@@ -52,13 +171,14 @@ exports.createSubscription = async (req, res) => {
           user.paystackAuthorizationCode
         );
 
-        // Optionally, clear user's subscription fields
         user.paystackSubscriptionCode = "";
         user.paystackAuthorizationCode = "";
         user.paystackStatus = "";
         user.paystackCustomerCode = "";
         user.paystackEmailToken = "";
         user.subscriptionTier = "Free";
+        user.mergeCountThisCycle = 0;
+        user.subscriptionExpiresAt = null;
         await user.save();
 
         return res.status(200).json({
@@ -73,13 +193,16 @@ exports.createSubscription = async (req, res) => {
       }
     }
 
-    console.log("Tier object:", tier);
-    // Create a new checkout session for paid plans
+    // Create new Paystack subscription
     const url = await queries.createCheckoutSession(
       user.email,
       tier.paystackPlanID,
       tier.price
     );
+
+    // Set subscription expiration for 30 days
+    user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+    await user.save();
 
     return res.status(200).json({
       hasError: false,
@@ -159,5 +282,33 @@ exports.getCustomerPortal = async (req, res) => {
       message: err.message,
       hasError: true,
     });
+  }
+};
+
+exports.initiatePayment = async (req, res) => {
+  const { email, amount, member1, member2, plan, redirect_url } = req.body;
+
+  try {
+    const response = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount,
+        metadata: { member1, member2, plan },
+        callback_url: redirect_url,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000, // 10 seconds
+      }
+    );
+
+    res.status(200).json(response.data.data);
+  } catch (error) {
+    console.error("Paystack error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Payment initiation failed" });
   }
 };

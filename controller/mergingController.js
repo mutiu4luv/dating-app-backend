@@ -37,6 +37,17 @@ exports.mergeMembers = async (req, res) => {
         .status(400)
         .json({ message: "These members are already merged" });
     }
+    if (user.subscriptionTier !== "Premium") {
+      const limit = tierLimits[user.subscriptionTier] || 0;
+      if (user.mergeCountThisCycle >= limit) {
+        return res.status(403).json({
+          hasError: true,
+          message: "You've used up all your merges for this plan.",
+        });
+      }
+      user.mergeCountThisCycle += 1;
+      await user.save();
+    }
 
     const newMerge = await Merge.create({
       member1: member1._id,

@@ -46,6 +46,16 @@ const memberSchema = new mongoose.Schema(
     phoneNumber: { type: String, required: true },
     password: { type: String, required: true },
     description: { type: String, required: true },
+    subscriptionTier: {
+      type: String,
+      enum: ["Free", "Basic", "Standard", "Premium"],
+      default: "Free",
+    },
+    subscriptionExpiresAt: Date,
+    mergeCountThisCycle: {
+      type: Number,
+      default: 0,
+    },
     transactionAmount: Number,
     transactionStatus: String,
     transactionReference: String,
