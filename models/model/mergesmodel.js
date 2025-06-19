@@ -12,14 +12,11 @@ const mergeSchema = new mongoose.Schema(
       ref: "Member",
       required: true,
     },
+    member1Email: { type: String }, // ✅ Required if you're returning this
     compatibilityScore: Number,
-    matchedAt: {
-      type: Date,
-      default: Date.now,
-    },
+    matchedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-// ✅ Fix: Only register model if not already registered
-module.exports = mongoose.models.Merge || mongoose.model("Merges", mergeSchema);
+module.exports = mongoose.models.Merge || mongoose.model("Merge", mergeSchema);

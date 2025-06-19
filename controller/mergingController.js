@@ -74,31 +74,33 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Error merging members", error: err.message });
   }
 };
-exports.getMergeStatus = async (req, res) => {
-  const { memberId1, memberId2 } = req.query;
 
-  if (!memberId1 || !memberId2) {
-    return res.status(400).json({ message: "Member IDs are required" });
+exports.getMergeStatus = async (req, res) => {
+  const { member1, member2 } = req.query;
+  if (!member1 || !member2) {
+    return res.status(400).json({ message: "member1 and member2 required" });
   }
 
   try {
+    console.log("Checking merge status for", member1, member2);
+
     const merge = await Merge.findOne({
       $or: [
-        { member1: memberId1, member2: memberId2 },
-        { member1: memberId2, member2: memberId1 },
+        { member1: member1, member2: member2 },
+        { member1: member2, member2: member1 },
       ],
     });
 
     if (!merge) {
-      return res.status(404).json({ message: "No merge found" });
+      return res.json({ hasPaid: false, email: "" });
     }
 
-    res.status(200).json({ message: "Merge found", merge });
+    res.json({ hasPaid: true, email: merge.member1Email || "" });
   } catch (err) {
-    console.error(err);
+    console.error("Merge status check error:", err.message);
     res
       .status(500)
-      .json({ message: "Error fetching merge status", error: err.message });
+      .json({ message: "Error checking merge status", error: err.message });
   }
 };
 
