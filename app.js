@@ -49,7 +49,7 @@ const mergeRouter = require("./router/merginRouter.js");
 
 const app = express();
 app.use("/uploads", express.static("uploads"));
-app.use(cors());
+// app.use(cors());
 
 const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
 
@@ -64,10 +64,10 @@ app.use(express.json()); // <-- move these up!
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/user", memberRouter);
-app.use("/api/merge", mergeMembers);
+app.use("/api/merge", mergeRouter);
 app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/subscription", subscriptionRouter);
-app.use("/merge", mergeRouter);
+// app.use("/merge", mergeRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to whoba Ogo foundation");

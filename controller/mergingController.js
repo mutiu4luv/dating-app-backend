@@ -1,4 +1,5 @@
-const Member = require("../models/memberModule.js");
+const memberModule = require("../models/model/mergesmodel.js");
+// const Member = require("../models/memberModule.js");
 const Merge = require("../models/mergeModel.js");
 
 exports.mergeMembers = async (req, res) => {
@@ -13,8 +14,8 @@ exports.mergeMembers = async (req, res) => {
   try {
     console.log("req.body:", req.body);
     console.log("req.file:", req.file);
-    const member1 = await Member.findById(memberId1);
-    const member2 = await Member.findById(memberId2);
+    const member1 = await memberModule.findById(memberId1);
+    const member2 = await memberModule.findById(memberId2);
 
     if (!member1 || !member2) {
       return res.status(404).json({ message: "One or both members not found" });
@@ -73,27 +74,55 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Error merging members", error: err.message });
   }
 };
-
 exports.getMergeStatus = async (req, res) => {
-  const { member1, member2 } = req.query;
-  if (!member1 || !member2) {
-    return res.status(400).json({ message: "member1 and member2 required" });
+  const { memberId1, memberId2 } = req.query;
+
+  if (!memberId1 || !memberId2) {
+    return res.status(400).json({ message: "Member IDs are required" });
   }
+
   try {
     const merge = await Merge.findOne({
       $or: [
-        { member1: member1, member2: member2 },
-        { member1: member2, member2: member1 },
+        { member1: memberId1, member2: memberId2 },
+        { member1: memberId2, member2: memberId1 },
       ],
     });
+
     if (!merge) {
-      return res.json({ hasPaid: false, email: "" });
+      return res.status(404).json({ message: "No merge found" });
     }
-    // Return actual email if needed
-    res.json({ hasPaid: true, email: merge.member1Email || "" });
+
+    res.status(200).json({ message: "Merge found", merge });
   } catch (err) {
+    console.error(err);
     res
       .status(500)
-      .json({ message: "Error checking merge status", error: err.message });
+      .json({ message: "Error fetching merge status", error: err.message });
   }
 };
+
+// const mongoose = require("mongoose");
+
+// const mergeSchema = new mongoose.Schema(
+//   {
+//     member1: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Member", // 👈 this must match your Member model name
+//       required: true,
+//     },
+//     member2: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Member",
+//       required: true,
+//     },
+//     compatibilityScore: Number,
+//     matchedAt: {
+//       type: Date,
+//       default: Date.now,
+//     },
+//   },
+//   { timestamps: true }
+// );
+
+// module.exports = mongoose.model("Merge", mergeSchema);
