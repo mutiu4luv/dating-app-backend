@@ -12,6 +12,6 @@ console.log("getMergeStatus is a", typeof getMergeStatus); // should be 'functio
 console.log("protect is a", typeof protect); // should be 'function'
 
 router.post("/", protect, mergeMembers);
-// router.get("/status", getMergeStatus);
+router.get("/status", getMergeStatus);
 
 module.exports = router;
