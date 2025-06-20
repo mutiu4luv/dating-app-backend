@@ -1,6 +1,7 @@
 const memberModule = require("../models/model/mergesmodel.js");
 // const Member = require("../models/memberModule.js");
-const Merge = require("../models/mergeModel.js");
+// const Merge = require("../models/mergeModel.js");
+const mergesmodel = require("../models/model/mergesmodel.js");
 
 exports.mergeMembers = async (req, res) => {
   const { memberId1, memberId2 } = req.body;
@@ -80,20 +81,19 @@ exports.getMergeStatus = async (req, res) => {
   try {
     console.log("Checking merge status for", member1, member2);
 
-    const merge = await Merge.findOne({
+    const merge = await mergesmodel.findOne({
       $or: [
-        { member1: member1, member2: member2 },
+        { member1, member2 },
         { member1: member2, member2: member1 },
       ],
     });
 
-    if (!merge) {
-      return res.json({ hasPaid: false, email: "" });
-    }
+    console.log("Merge found:", merge);
+    if (!merge) return res.json({ hasPaid: false, email: "" });
 
     res.json({ hasPaid: true, email: merge.member1Email || "" });
   } catch (err) {
-    console.error("Merge status check error:", err.message);
+    console.error("Merge status check error:", err);
     res
       .status(500)
       .json({ message: "Error checking merge status", error: err.message });
