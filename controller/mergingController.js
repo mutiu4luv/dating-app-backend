@@ -8,12 +8,12 @@ exports.mergeMembers = async (req, res) => {
   if (!memberId1 || !memberId2) {
     return res.status(400).json({ message: "Member IDs are required" });
   }
+
   if (memberId1 === memberId2) {
     return res.status(400).json({ message: "Cannot merge the same member" });
   }
+
   try {
-    console.log("req.body:", req.body);
-    console.log("req.file:", req.file);
     const member1 = await memberModule.findById(memberId1);
     const member2 = await memberModule.findById(memberId2);
 
@@ -21,54 +21,50 @@ exports.mergeMembers = async (req, res) => {
       return res.status(404).json({ message: "One or both members not found" });
     }
 
-    // Only match based on relationship type
-    const compatible = member1.relationshipType === member2.relationshipType;
-
-    if (!compatible) {
+    if (member1.relationshipType !== member2.relationshipType) {
       return res.status(400).json({ message: "Members are not compatible" });
     }
+
     const alreadyMerged = await Merge.findOne({
       $or: [
         { member1: member1._id, member2: member2._id },
         { member1: member2._id, member2: member1._id },
       ],
     });
+
     if (alreadyMerged) {
       return res
         .status(400)
         .json({ message: "These members are already merged" });
     }
-    if (user.subscriptionTier !== "Premium") {
-      const limit = tierLimits[user.subscriptionTier] || 0;
-      if (user.mergeCountThisCycle >= limit) {
+
+    // Handle subscription limit
+    if (member1.subscriptionTier !== "Premium") {
+      const tierLimits = { Free: 0, Basic: 5, Standard: 10 }; // Example limits
+      const limit = tierLimits[member1.subscriptionTier] || 0;
+
+      if (member1.mergeCountThisCycle >= limit) {
         return res.status(403).json({
-          hasError: true,
           message: "You've used up all your merges for this plan.",
         });
       }
-      user.mergeCountThisCycle += 1;
-      await user.save();
+
+      member1.mergeCountThisCycle += 1;
+      await member1.save();
     }
 
     const newMerge = await Merge.create({
       member1: member1._id,
       member2: member2._id,
-
-      member1Name: member1.name,
-      relationshipType: member1.relationshipType,
-      mergedAt: new Date(),
-      compatibilityScore: 100,
       member1Email: member1.email,
-      member1Phone: member1.phoneNumber,
-      member2Name: member2.name,
-      member2Email: member2.email,
-      member2Phone: member2.phoneNumber,
+      compatibilityScore: 100,
     });
 
-    res.status(200).json({ message: "Members matched", match: newMerge });
+    return res
+      .status(200)
+      .json({ message: "Members matched", match: newMerge });
   } catch (err) {
-    console.error(err); // <--- log the real error
-
+    console.error(err);
     res
       .status(500)
       .json({ message: "Error merging members", error: err.message });
