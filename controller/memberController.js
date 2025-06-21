@@ -229,3 +229,17 @@ exports.getMembersByRelationshipType = async (req, res) => {
 //     res.status(500).json({ message: err.message });
 //   }
 // };
+exports.getSingleMember = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const member = await Member.findById(id).select("username email _id");
+    if (!member) {
+      return res.status(404).json({ error: "Member not found" });
+    }
+    res.json(member);
+  } catch (err) {
+    console.error("❌ Error fetching member", err);
+    res.status(500).json({ error: "Server error fetching member." });
+  }
+};
