@@ -37,6 +37,26 @@ exports.getChatMessages = async (req, res) => {
     res.status(500).json({ error: "Server error fetching messages." });
   }
 };
+// exports.saveMessage = async (req, res) => {
+//   try {
+//     const { senderId, receiverId, content, room } = req.body;
+
+//     if (!senderId || !receiverId || !content || !room) {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
+
+//     const message = new Message({ senderId, receiverId, content, room });
+//     const saved = await message.save();
+
+//     return res.status(201).json(saved);
+//   } catch (err) {
+//     console.error("❌ Message saving failed:", err.message); // 👈 logs real error
+//     res
+//       .status(500)
+//       .json({ error: "Failed to save message", details: err.message });
+//   }
+// };
+
 exports.saveMessage = async (req, res) => {
   try {
     const { senderId, receiverId, content, room } = req.body;
@@ -45,12 +65,19 @@ exports.saveMessage = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    if (
+      !mongoose.Types.ObjectId.isValid(senderId) ||
+      !mongoose.Types.ObjectId.isValid(receiverId)
+    ) {
+      return res.status(400).json({ error: "Invalid sender or receiver ID" });
+    }
+
     const message = new Message({ senderId, receiverId, content, room });
     const saved = await message.save();
 
     return res.status(201).json(saved);
   } catch (err) {
-    console.error("❌ Message saving failed:", err.message); // 👈 logs real error
+    console.error("❌ Message saving failed:", err.message);
     res
       .status(500)
       .json({ error: "Failed to save message", details: err.message });
