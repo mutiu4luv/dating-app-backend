@@ -37,16 +37,22 @@ exports.getChatMessages = async (req, res) => {
     res.status(500).json({ error: "Server error fetching messages." });
   }
 };
-exports.saveMessage = async (data) => {
+exports.saveMessage = async (req, res) => {
   try {
-    const message = new Message(data);
-    await message.save();
-    return message;
+    const { senderId, receiverId, content, room } = req.body;
+
+    if (!senderId || !receiverId || !content || !room) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const message = new Message({ senderId, receiverId, content, room });
+    const saved = await message.save();
+
+    return res.status(201).json(saved);
   } catch (err) {
-    console.error("❌ Failed to save message:", {
-      error: err.message,
-      data,
-    });
-    throw new Error("Message saving failed");
+    console.error("❌ Message saving failed:", err.message); // 👈 logs real error
+    res
+      .status(500)
+      .json({ error: "Failed to save message", details: err.message });
   }
 };
