@@ -1,7 +1,7 @@
-const memberModule = require("../models/model/mergesmodel.js");
+const memberModule = require("../models/memberModule.js");
 // const Member = require("../models/memberModule.js");
 // const Merge = require("../models/mergeModel.js");
-const mergesmodel = require("../models/model/mergesmodel.js");
+const Merge = require("../models/model/mergesmodel.js");
 
 exports.mergeMembers = async (req, res) => {
   const { memberId1, memberId2 } = req.body;
@@ -15,8 +15,11 @@ exports.mergeMembers = async (req, res) => {
   }
 
   try {
-    const member1 = await memberModule.findById(memberId1);
-    const member2 = await memberModule.findById(memberId2);
+    const member1 = await memberModule.findOne({ _id: memberId1 });
+    const member2 = await memberModule.findOne({ _id: memberId2 });
+
+    console.log("Fetched member1:", member1);
+    console.log("Fetched member2:", member2);
 
     if (!member1 || !member2) {
       return res.status(404).json({ message: "One or both members not found" });
@@ -39,9 +42,9 @@ exports.mergeMembers = async (req, res) => {
         .json({ message: "These members are already merged" });
     }
 
-    // Handle subscription limit
+    // Handle subscription limits
     if (member1.subscriptionTier !== "Premium") {
-      const tierLimits = { Free: 0, Basic: 5, Standard: 10 }; // Example limits
+      const tierLimits = { Free: 0, Basic: 5, Standard: 10 }; // Customize as needed
       const limit = tierLimits[member1.subscriptionTier] || 0;
 
       if (member1.mergeCountThisCycle >= limit) {
@@ -65,10 +68,11 @@ exports.mergeMembers = async (req, res) => {
       .status(200)
       .json({ message: "Members matched", match: newMerge });
   } catch (err) {
-    console.error(err);
-    res
-      .status(500)
-      .json({ message: "Error merging members", error: err.message });
+    console.error("❌ Error merging members:", err);
+    return res.status(500).json({
+      message: "Error merging members",
+      error: err.message,
+    });
   }
 };
 
