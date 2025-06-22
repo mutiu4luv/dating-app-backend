@@ -1,5 +1,6 @@
 const Message = require("../models/chatModel.js");
 const Member = require("../models/memberModule.js");
+const mongoose = require("mongoose");
 
 // exports.getChatMessages = async (req, res) => {
 //   const { member1, member2 } = req.query;
