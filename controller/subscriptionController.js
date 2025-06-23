@@ -312,3 +312,46 @@ exports.initiatePayment = async (req, res) => {
     res.status(500).json({ error: "Payment initiation failed" });
   }
 };
+
+exports.initiateSubscription = async (req, res) => {
+  try {
+    const { email, amount, member1, member2, plan } = req.body;
+
+    if (!email || !amount || !member1 || !member2 || !plan) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const callback_url = `dating-app-git-main-mutiu4luvs-projects.vercel.app/merge/${member1}/${member2}`;
+
+    const paystackRes = await axios.post(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        email,
+        amount,
+        callback_url, // ✅ Important: both userId and member2
+        metadata: {
+          plan,
+          member1,
+          member2,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return res.status(200).json({
+      authorization_url: paystackRes.data.data.authorization_url,
+      reference: paystackRes.data.data.reference,
+    });
+  } catch (error) {
+    console.error(
+      "Paystack Init Error:",
+      error?.response?.data || error.message
+    );
+    res.status(500).json({ message: "Payment initialization failed" });
+  }
+};
