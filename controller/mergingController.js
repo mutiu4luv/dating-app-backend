@@ -15,8 +15,8 @@ exports.mergeMembers = async (req, res) => {
   }
 
   try {
-    const member1 = await memberModule.findOne({ _id: memberId1 });
-    const member2 = await memberModule.findOne({ _id: memberId2 });
+    const member1 = await memberModule.findById(memberId1);
+    const member2 = await memberModule.findById(memberId2);
 
     console.log("Fetched member1:", member1);
     console.log("Fetched member2:", member2);
@@ -42,10 +42,14 @@ exports.mergeMembers = async (req, res) => {
         .json({ message: "These members are already merged" });
     }
 
-    // Handle subscription limits
-    if (member1.subscriptionTier !== "Premium") {
-      const tierLimits = { Free: 0, Basic: 5, Standard: 10 }; // Customize as needed
-      const limit = tierLimits[member1.subscriptionTier] || 0;
+    // Only apply merge limits to Basic and Standard
+    const limitedTiers = { Basic: 5, Standard: 10 };
+    const isLimited = Object.keys(limitedTiers).includes(
+      member1.subscriptionTier
+    );
+
+    if (isLimited) {
+      const limit = limitedTiers[member1.subscriptionTier];
 
       if (member1.mergeCountThisCycle >= limit) {
         return res.status(403).json({
@@ -69,10 +73,9 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Members matched", match: newMerge });
   } catch (err) {
     console.error("❌ Error merging members:", err);
-    return res.status(500).json({
-      message: "Error merging members",
-      error: err.message,
-    });
+    res
+      .status(500)
+      .json({ message: "Error merging members", error: err.message });
   }
 };
 
