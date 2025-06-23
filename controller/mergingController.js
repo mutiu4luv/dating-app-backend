@@ -78,29 +78,25 @@ exports.mergeMembers = async (req, res) => {
 
 exports.getMergeStatus = async (req, res) => {
   const { member1, member2 } = req.query;
+
   if (!member1 || !member2) {
-    return res.status(400).json({ message: "member1 and member2 required" });
+    return res.status(400).json({ message: "Both member IDs are required" });
   }
 
   try {
-    console.log("Checking merge status for", member1, member2);
-
-    const merge = await mergesmodel.findOne({
+    const merge = await Merge.findOne({
       $or: [
         { member1, member2 },
         { member1: member2, member2: member1 },
       ],
     });
 
-    console.log("Merge found:", merge);
-    if (!merge) return res.json({ hasPaid: false, email: "" });
-
-    res.json({ hasPaid: true, email: merge.member1Email || "" });
-  } catch (err) {
-    console.error("Merge status check error:", err);
+    res.status(200).json({ isMerged: !!merge });
+  } catch (error) {
+    console.error("❌ Error in getMergeStatus:", error);
     res
       .status(500)
-      .json({ message: "Error checking merge status", error: err.message });
+      .json({ message: "Internal Server Error", error: error.message });
   }
 };
 
