@@ -94,51 +94,50 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Error merging members", error: err.message });
   }
 };
-exports.getMergeStatus = async (req, res) => {
+
+exports.getMergeStatuses = async (req, res) => {
   const { member1, member2 } = req.query;
 
   if (!member1 || !member2) {
-    return res.status(400).json({ message: "Both member IDs are required" });
+    return res.status(400).json({ message: "Member IDs are required." });
   }
 
   try {
-    const merge = await Merge.findOne({
+    const existingMerge = await Merge.findOne({
       $or: [
         { member1, member2 },
         { member1: member2, member2: member1 },
       ],
     });
 
-    res.status(200).json({ isMerged: !!merge });
-  } catch (error) {
-    console.error("❌ Error in getMergeStatus:", error);
-    res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    const isMerged = !!existingMerge;
+
+    const member = await memberModule.findById(member1);
+    if (!member) {
+      return res.status(404).json({ message: "Member not found." });
+    }
+
+    const latestSub = await memberModule.findOne({ member: member1 }).sort({
+      createdAt: -1,
+    });
+
+    let hasPaid = false;
+    let subscriptionActive = false;
+
+    if (latestSub) {
+      hasPaid = true;
+      const subEnd = moment(latestSub.createdAt).add(1, "month");
+      subscriptionActive = moment().isBefore(subEnd);
+    }
+
+    return res.status(200).json({
+      hasPaid,
+      isMerged,
+      email: member.email,
+      subscriptionActive,
+    });
+  } catch (err) {
+    console.error("Status check failed:", err);
+    return res.status(500).json({ message: "Internal server error." });
   }
 };
-
-// const mongoose = require("mongoose");
-
-// const mergeSchema = new mongoose.Schema(
-//   {
-//     member1: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Member", // 👈 this must match your Member model name
-//       required: true,
-//     },
-//     member2: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "Member",
-//       required: true,
-//     },
-//     compatibilityScore: Number,
-//     matchedAt: {
-//       type: Date,
-//       default: Date.now,
-//     },
-//   },
-//   { timestamps: true }
-// );
-
-// module.exports = mongoose.model("Merge", mergeSchema);

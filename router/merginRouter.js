@@ -1,9 +1,9 @@
 const express = require("express");
 const {
   mergeMembers,
-  getMergeStatus,
+  getMergeStatuses,
 } = require("../controller/mergingController.js");
-const protect = require("../middleware/auth.js"); // OR: const { protect } = require("../middleware/auth");
+const protect = require("../middleware/auth.js");
 const router = express.Router();
 
 // DEBUG: Optional check to ensure handlers are functions
@@ -12,6 +12,6 @@ console.log("getMergeStatus is a", typeof getMergeStatus); // should be 'functio
 console.log("protect is a", typeof protect); // should be 'function'
 
 router.post("/", protect, mergeMembers);
-router.get("/status", getMergeStatus);
+router.get("/status", getMergeStatuses); // ✅ route handler is a function
 
 module.exports = router;
