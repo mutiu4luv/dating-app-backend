@@ -84,3 +84,57 @@ exports.saveMessage = async (req, res) => {
       .json({ error: "Failed to save message", details: err.message });
   }
 };
+
+exports.getUserConversations = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const conversations = await Message.aggregate([
+      {
+        $match: {
+          $or: [
+            { senderId: new mongoose.Types.ObjectId(userId) },
+            { receiverId: new mongoose.Types.ObjectId(userId) },
+          ],
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ["$senderId", new mongoose.Types.ObjectId(userId)] },
+              "$receiverId",
+              "$senderId",
+            ],
+          },
+          lastMessage: { $first: "$content" },
+          timestamp: { $first: "$createdAt" },
+        },
+      },
+      {
+        $lookup: {
+          from: "members",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo",
+        },
+      },
+      { $unwind: "$userInfo" },
+      {
+        $project: {
+          matchId: "$_id",
+          username: "$userInfo.username",
+          lastMessage: 1,
+          timestamp: 1,
+        },
+      },
+      { $sort: { timestamp: -1 } },
+    ]);
+
+    res.status(200).json(conversations);
+  } catch (err) {
+    console.error("Error fetching conversations:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
