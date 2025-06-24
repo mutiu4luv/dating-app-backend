@@ -5,9 +5,10 @@ const {
   saveMessage,
   getUserConversations,
 } = require("../controller/chat");
+const protect = require("../middleware/auth");
 
 router.get("/", getChatMessages);
 router.post("/save", saveMessage);
-router.get("/conversations/:userId", getUserConversations);
+router.get("/conversations/:userId", protect, getUserConversations);
 
 module.exports = router;
