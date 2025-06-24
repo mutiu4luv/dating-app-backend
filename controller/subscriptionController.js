@@ -118,9 +118,7 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Get plan info
     const tier = config.subscriptionTiers[subscriptionTier];
-
     if (!tier) {
       return res.status(400).json({
         message: "Invalid subscription tier type in context",
@@ -128,10 +126,9 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Check expiration and reset if expired
+    // Check and reset expired subscription
     const now = new Date();
     if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < now) {
-      // Subscription expired — reset everything
       user.paystackSubscriptionCode = "";
       user.paystackAuthorizationCode = "";
       user.paystackStatus = "";
@@ -140,13 +137,15 @@ exports.createSubscription = async (req, res) => {
       user.subscriptionTier = "Free";
       user.mergeCountThisCycle = 0;
       user.subscriptionExpiresAt = null;
+      user.lastMergeReset = new Date(0); // reset to epoch start
       await user.save();
     }
 
-    // Prevent re-subscription if still valid and merge limit not reached
+    // Prevent re-subscription if still valid and limit reached
     const tierLimits = {
-      Basic: 5,
-      Standard: 10,
+      Free: 3,
+      Basic: 10,
+      Standard: 20,
       Premium: Infinity,
     };
 
@@ -162,7 +161,7 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Handle Free tier (cancel existing)
+    // Handle Free tier downgrade (cancel current plan if exists)
     if (subscriptionTier === "Free") {
       try {
         await queries.cancelSubscription(
@@ -179,6 +178,7 @@ exports.createSubscription = async (req, res) => {
         user.subscriptionTier = "Free";
         user.mergeCountThisCycle = 0;
         user.subscriptionExpiresAt = null;
+        user.lastMergeReset = new Date(); // start tracking from now
         await user.save();
 
         return res.status(200).json({
@@ -193,15 +193,17 @@ exports.createSubscription = async (req, res) => {
       }
     }
 
-    // Create new Paystack subscription
+    // Proceed to create Paystack subscription
     const url = await queries.createCheckoutSession(
       user.email,
       tier.paystackPlanID,
       tier.price
     );
 
-    // Set subscription expiration for 30 days
+    user.subscriptionTier = subscriptionTier;
     user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+    user.mergeCountThisCycle = 0; // Reset merge usage
+    user.lastMergeReset = new Date(); // Reset cycle start
     await user.save();
 
     return res.status(200).json({

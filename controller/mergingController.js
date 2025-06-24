@@ -18,9 +18,6 @@ exports.mergeMembers = async (req, res) => {
     const member1 = await memberModule.findById(memberId1);
     const member2 = await memberModule.findById(memberId2);
 
-    console.log("Fetched member1:", member1);
-    console.log("Fetched member2:", member2);
-
     if (!member1 || !member2) {
       return res.status(404).json({ message: "One or both members not found" });
     }
@@ -29,6 +26,7 @@ exports.mergeMembers = async (req, res) => {
       return res.status(400).json({ message: "Members are not compatible" });
     }
 
+    // Check if already merged
     const alreadyMerged = await Merge.findOne({
       $or: [
         { member1: member1._id, member2: member2._id },
@@ -42,18 +40,35 @@ exports.mergeMembers = async (req, res) => {
         .json({ message: "These members are already merged" });
     }
 
-    // Only apply merge limits to Basic and Standard
-    const limitedTiers = { Basic: 5, Standard: 10 };
-    const isLimited = Object.keys(limitedTiers).includes(
-      member1.subscriptionTier
-    );
+    // Define limits by tier
+    const mergeLimits = {
+      Free: 3,
+      Basic: 10,
+      Standard: 20,
+    };
 
+    const tier = member1.subscriptionTier;
+    const isLimited = mergeLimits.hasOwnProperty(tier);
+
+    // ⏳ Reset counter monthly
+    const now = new Date();
+    const lastReset = member1.lastMergeReset || new Date(0);
+    const isNewMonth =
+      now.getMonth() !== lastReset.getMonth() ||
+      now.getFullYear() !== lastReset.getFullYear();
+
+    if (isNewMonth) {
+      member1.mergeCountThisCycle = 0;
+      member1.lastMergeReset = now;
+      await member1.save();
+    }
+
+    // Check limit
     if (isLimited) {
-      const limit = limitedTiers[member1.subscriptionTier];
-
+      const limit = mergeLimits[tier];
       if (member1.mergeCountThisCycle >= limit) {
         return res.status(403).json({
-          message: "You've used up all your merges for this plan.",
+          message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
         });
       }
 
@@ -61,6 +76,7 @@ exports.mergeMembers = async (req, res) => {
       await member1.save();
     }
 
+    // Create new merge
     const newMerge = await Merge.create({
       member1: member1._id,
       member2: member2._id,
@@ -78,7 +94,6 @@ exports.mergeMembers = async (req, res) => {
       .json({ message: "Error merging members", error: err.message });
   }
 };
-
 exports.getMergeStatus = async (req, res) => {
   const { member1, member2 } = req.query;
 

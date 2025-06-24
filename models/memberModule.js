@@ -65,6 +65,14 @@ const memberSchema = new mongoose.Schema(
     paystackAuthorizationCode: String,
     paystackCustomerCode: String,
     paystackPlanID: String,
+    mergeCountThisCycle: { type: Number, default: 0 },
+    lastMergeReset: { type: Date, default: new Date(0) },
+    subscriptionExpiresAt: Date,
+    subscriptionTier: {
+      type: String,
+      enum: ["Free", "Basic", "Standard", "Premium"],
+      default: "Free",
+    },
   },
   { timestamps: true }
 );
