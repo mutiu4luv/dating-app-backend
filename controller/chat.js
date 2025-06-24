@@ -138,3 +138,19 @@ exports.getUserConversations = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.getUnreadMessageCount = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const count = await Message.countDocuments({
+      receiverId: userId,
+      read: false,
+    });
+
+    res.status(200).json({ unreadCount: count });
+  } catch (err) {
+    console.error("Error fetching unread message count:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
