@@ -9,6 +9,7 @@ const {
   deleteMember,
   updateMember,
   getMembersByRelationshipType,
+  getUserStatus,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -23,5 +24,6 @@ router.delete("/:id", protect, deleteMember);
 router.put("/:id", protect, updateMember);
 router.get("/merge/:id", protect, getMembersByRelationshipType);
 router.get("/single/:id", getSingleMember);
+router.get("/:userId/status", getUserStatus);
 
 module.exports = router;

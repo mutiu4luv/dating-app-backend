@@ -10,6 +10,7 @@ const mergeRouter = require("./router/merginRouter.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
 const chatRouter = require("./router/chatRoute.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
+const memberModule = require("./models/memberModule.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -50,24 +51,54 @@ const io = new Server(server, {
   },
 });
 
+// io.on("connection", (socket) => {
+//   console.log("🔌 New client connected: " + socket.id);
+
+//   socket.on("join_room", (room) => {
+//     socket.join(room);
+//     console.log(`📦 User joined room: ${room}`);
+//   });
+
+//   socket.on("send_message", (data) => {
+//     io.to(data.room).emit("receive_message", data);
+//   });
+
+//   socket.on("disconnect", () => {
+//     console.log("❌ Client disconnected: " + socket.id);
+//   });
+// });
+
+// const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
+const onlineUsers = new Map(); // Store socket-to-user mapping
+
 io.on("connection", (socket) => {
   console.log("🔌 New client connected: " + socket.id);
+
+  socket.on("user_connected", async (userId) => {
+    console.log("SOCKET user_connected received", userId); // <-- Add this
+
+    console.log(`✅ User ${userId} marked online`);
+    await memberModule.findByIdAndUpdate(userId, { isOnline: true });
+    socket.userId = userId;
+  });
 
   socket.on("join_room", (room) => {
     socket.join(room);
     console.log(`📦 User joined room: ${room}`);
   });
 
-  socket.on("send_message", (data) => {
-    io.to(data.room).emit("receive_message", data);
-  });
-
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("❌ Client disconnected: " + socket.id);
+    if (socket.userId) {
+      await memberModule.findByIdAndUpdate(socket.userId, {
+        // Update user status to offline
+        isOnline: false,
+        lastSeen: new Date(),
+      });
+      console.log(`⛔ User ${socket.userId} marked offline`);
+    }
   });
 });
-
-// const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
 
 app.use(
   cors({

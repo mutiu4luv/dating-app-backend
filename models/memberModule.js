@@ -73,6 +73,14 @@ const memberSchema = new mongoose.Schema(
       enum: ["Free", "Basic", "Standard", "Premium"],
       default: "Free",
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -243,3 +243,28 @@ exports.getSingleMember = async (req, res) => {
     res.status(500).json({ error: "Server error fetching member." });
   }
 };
+
+exports.getUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate ID format (optional but recommended)
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await Member.findById(userId).select("isOnline lastSeen");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      isOnline: Boolean(user.isOnline),
+      lastSeen: user.lastSeen || null,
+    });
+  } catch (err) {
+    console.error("Error checking user status:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
