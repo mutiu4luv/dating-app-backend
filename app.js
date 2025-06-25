@@ -15,9 +15,36 @@ const app = express();
 const server = http.createServer(app);
 
 // Set up Socket.IO
+// const io = new Server(server, {
+//   cors: {
+//     origin: [process.env.FRONTEND_URL, "http://localhost:5173"],
+//     methods: ["GET", "POST"],
+//     credentials: true,
+//   },
+// });
+
+// io.on("connection", (socket) => {
+//   console.log("🔌 New client connected: " + socket.id);
+
+//   socket.on("join_room", (room) => {
+//     socket.join(room);
+//     console.log(`📦 User joined room: ${room}`);
+//   });
+
+//   socket.on("send_message", async (data) => {
+//     io.to(data.room).emit("receive_message", data);
+//   });
+
+//   socket.on("disconnect", () => {
+//     console.log("❌ Client disconnected: " + socket.id);
+//   });
+// });
+const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
+
+// ✅ Socket.IO setup with same allowed origins
 const io = new Server(server, {
   cors: {
-    origin: [process.env.FRONTEND_URL, "http://localhost:5173"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -31,7 +58,7 @@ io.on("connection", (socket) => {
     console.log(`📦 User joined room: ${room}`);
   });
 
-  socket.on("send_message", async (data) => {
+  socket.on("send_message", (data) => {
     io.to(data.room).emit("receive_message", data);
   });
 
@@ -40,7 +67,7 @@ io.on("connection", (socket) => {
   });
 });
 
-const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
+// const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
 
 app.use(
   cors({
