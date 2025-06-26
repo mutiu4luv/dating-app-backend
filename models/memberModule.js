@@ -68,6 +68,8 @@ const memberSchema = new mongoose.Schema(
     mergeCountThisCycle: { type: Number, default: 0 },
     lastMergeReset: { type: Date, default: new Date(0) },
     subscriptionExpiresAt: Date,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
     subscriptionTier: {
       type: String,
       enum: ["Free", "Basic", "Standard", "Premium"],

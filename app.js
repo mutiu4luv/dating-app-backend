@@ -71,31 +71,48 @@ const io = new Server(server, {
 // const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
 const onlineUsers = new Map(); // Store socket-to-user mapping
 
+const userSockets = new Map(); // ensure this is defined above
+
 io.on("connection", (socket) => {
   console.log("🔌 New client connected: " + socket.id);
 
-  socket.on("user_connected", async (userId) => {
-    console.log("SOCKET user_connected received", userId); // <-- Add this
-
-    console.log(`✅ User ${userId} marked online`);
-    await memberModule.findByIdAndUpdate(userId, { isOnline: true });
+  socket.on("register_user", async (userId) => {
     socket.userId = userId;
+
+    if (!userSockets.has(userId)) userSockets.set(userId, new Set());
+    userSockets.get(userId).add(socket.id);
+
+    await Member.findByIdAndUpdate(userId, { isOnline: true });
   });
 
+  // ✅ Handle room join
   socket.on("join_room", (room) => {
     socket.join(room);
     console.log(`📦 User joined room: ${room}`);
   });
 
+  // ✅ Broadcast message to everyone in room (except sender)
+  socket.on("send_message", (data) => {
+    const { room } = data;
+    socket.to(room).emit("receive_message", data);
+  });
+
   socket.on("disconnect", async () => {
     console.log("❌ Client disconnected: " + socket.id);
-    if (socket.userId) {
-      await memberModule.findByIdAndUpdate(socket.userId, {
-        // Update user status to offline
-        isOnline: false,
-        lastSeen: new Date(),
-      });
-      console.log(`⛔ User ${socket.userId} marked offline`);
+
+    const userId = socket.userId;
+    if (!userId) return;
+
+    const sockets = userSockets.get(userId);
+    if (sockets) {
+      sockets.delete(socket.id);
+      if (sockets.size === 0) {
+        userSockets.delete(userId);
+        await Member.findByIdAndUpdate(userId, {
+          isOnline: false,
+          lastSeen: new Date(),
+        });
+      }
     }
   });
 });
