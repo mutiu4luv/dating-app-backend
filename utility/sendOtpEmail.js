@@ -36,7 +36,7 @@ exports.sendOtpEmail = async (email, otp) => {
           <p>Use the OTP below to complete your registration:</p>
           <h1 style="color: #fff; background: #ec4899; padding: 10px 20px; border-radius: 8px; display: inline-block;">${otp}</h1>
           <p style="margin-top: 20px;">This OTP is valid for <strong>10 minutes</strong>. Please don’t share this code with anyone.</p>
-          <p style="margin-top: 30px;">💌 From the <strong>HGSC² Digital Skills Team</strong></p>
+          <p style="margin-top: 30px;">💌 From the <strong>Find Your Match Team</strong></p>
         </div>
       `,
     };

@@ -11,7 +11,7 @@ dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
 const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
+  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59" });
 
 exports.register = async (req, res) => {
   const {
