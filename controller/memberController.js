@@ -9,9 +9,13 @@ const localizedFormat = require("dayjs/plugin/localizedFormat");
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
-
+console.log("JWT_SECRET used:", process.env.JWT_SECRET);
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET is not set in environment variables!");
+  throw new Error("JWT_SECRET is required but not set");
+}
 const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59" });
+  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
 
 exports.register = async (req, res) => {
   const {
