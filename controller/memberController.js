@@ -446,10 +446,24 @@ exports.forgotPassword = async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"LoveLink Support" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Password Reset Request",
-      html: `<p>Hello,</p><p>You requested to reset your password.</p><p><a href="${resetLink}">Click here to reset</a></p>`,
+      subject: "Password Reset Instructions",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5">
+          <h2 style="color:#4CAF50;">Reset Your Password</h2>
+          <p>Hello ${user.firstName || "User"},</p>
+          <p>You requested to reset your password. Click the button below to proceed:</p>
+          <p>
+            <a href="${resetLink}" style="background:#4CAF50;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">
+              Reset Password
+            </a>
+          </p>
+          <p>This link will expire in 15 minutes.</p>
+          <hr/>
+          <small>If you did not request this, you can ignore this email.</small>
+        </div>
+      `,
     });
 
     res.status(200).json({ message: "Password reset email sent." });
@@ -465,13 +479,32 @@ exports.resetPassword = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await Member.findById(decoded.id);
 
-    if (!user) return res.status(400).json({ message: "Invalid token." });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid token." });
+    }
 
-    user.password = newPassword;
+    // 🔐 Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
     await user.save();
 
-    res.status(200).json({ message: "Password reset successful." });
+    // ✅ Generate new JWT after password reset
+    const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d", // Adjust expiration as needed
+    });
+
+    res.status(200).json({
+      message: "Password reset successful.",
+      token: newToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name, // optional: include any public user data
+      },
+    });
   } catch (err) {
+    console.error("Reset error:", err.message);
     res.status(400).json({ message: "Token expired or invalid." });
   }
 };
