@@ -479,19 +479,16 @@ exports.resetPassword = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await Member.findById(decoded.id);
 
-    if (!user) {
-      return res.status(400).json({ message: "Invalid token." });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid token." });
 
-    // 🔐 Hash the new password
+    // 🔐 Hash the new password before saving
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
-
     await user.save();
 
-    // ✅ Generate new JWT after password reset
+    // ✅ Generate new token for auto-login
     const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d", // Adjust expiration as needed
+      expiresIn: "7d",
     });
 
     res.status(200).json({
@@ -500,7 +497,7 @@ exports.resetPassword = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
-        name: user.name, // optional: include any public user data
+        name: user.name,
       },
     });
   } catch (err) {
