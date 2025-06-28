@@ -13,6 +13,8 @@ const {
   // verifyAndCompleteRegistration,
   getSingleMember,
   logout,
+  forgotPassword,
+  resetPassword,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -35,5 +37,7 @@ router.get("/merge/:id", protect, getMembersByRelationshipType);
 router.get("/single/:id", getSingleMember);
 router.get("/:userId/status", getUserStatus);
 router.post("/logout", protect, logout);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

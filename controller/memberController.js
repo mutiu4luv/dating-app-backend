@@ -3,17 +3,14 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { sendOtpEmail } = require("../utility/sendOtpEmail.js");
 const Otp = require("../models/otp.js");
+const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
 const relativeTime = require("dayjs/plugin/relativeTime");
 const localizedFormat = require("dayjs/plugin/localizedFormat");
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
-console.log("JWT_SECRET used:", process.env.JWT_SECRET);
-if (!process.env.JWT_SECRET) {
-  console.error("❌ JWT_SECRET is not set in environment variables!");
-  throw new Error("JWT_SECRET is required but not set");
-}
+
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
 
@@ -420,5 +417,59 @@ exports.getProfile = async (req, res) => {
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await Member.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "No user with that email." });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Password Reset Request",
+      html: `<p>Hello,</p><p>You requested to reset your password.</p><p><a href="${resetLink}">Click here to reset</a></p>`,
+    });
+
+    res.status(200).json({ message: "Password reset email sent." });
+  } catch (err) {
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await Member.findById(decoded.id);
+
+    if (!user) return res.status(400).json({ message: "Invalid token." });
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successful." });
+  } catch (err) {
+    res.status(400).json({ message: "Token expired or invalid." });
   }
 };
