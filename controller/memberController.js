@@ -435,7 +435,7 @@ exports.forgotPassword = async (req, res) => {
 
     const resetLink = `${
       process.env.FRONTEND_URL || "http://localhost:5173"
-    }/reset-password`;
+    }/reset-password/${token}`;
     console.log("Reset link:", resetLink);
     const transporter = nodemailer.createTransport({
       service: "gmail",
