@@ -14,91 +14,7 @@ dayjs.extend(localizedFormat);
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
 
-exports.register = async (req, res) => {
-  const {
-    name,
-    age,
-    gender,
-    location,
-    occupation,
-    maritalStatus,
-    relationshipType,
-    username,
-    email,
-    phoneNumber,
-    password,
-    description,
-  } = req.body;
-  console.log("req.body:", req.body);
-  console.log("req.file:", req.file);
-
-  let photoUrl = "";
-  if (req.file) {
-    photoUrl = req.file.path;
-  }
-
-  try {
-    const exists = await Member.findOne({ email });
-    if (exists) return res.status(400).json({ message: "Email already used" });
-
-    const hashed = await bcrypt.hash(password, 10);
-
-    const member = await Member.create({
-      photo: photoUrl,
-      name,
-      age: Number(age), // convert to number
-      gender,
-      location,
-      occupation,
-      maritalStatus,
-      relationshipType,
-      username,
-      email,
-      phoneNumber,
-      password: hashed,
-      description,
-    });
-
-    const token = generateToken(member._id);
-    res.status(201).json({ member, token });
-  } catch (err) {
-    console.error("Registration error:", err);
-    res
-      .status(500)
-      .json({ message: "Error registering user", error: err.message });
-  }
-};
 // exports.register = async (req, res) => {
-//   const { email } = req.body;
-
-//   if (!email) {
-//     return res.status(400).json({ message: "Email is required" });
-//   }
-
-//   try {
-//     const existing = await Member.findOne({ email });
-//     if (existing)
-//       return res.status(400).json({ message: "Email already in use" });
-
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-//     await Otp.create({
-//       email,
-//       otp,
-//       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-//     });
-
-//     await sendOtpEmail(email, otp);
-
-//     res.status(200).json({ message: "OTP sent to email" });
-//   } catch (error) {
-//     console.error("Error sending OTP:", error);
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
-
-// // Step 2: Verify OTP and Complete Registration
-// exports.verifyAndCompleteRegistration = async (req, res) => {
 //   const {
 //     name,
 //     age,
@@ -112,20 +28,25 @@ exports.register = async (req, res) => {
 //     phoneNumber,
 //     password,
 //     description,
-//     otp,
 //   } = req.body;
-//   try {
-//     const validOtp = await Otp.findOne({ email, otp });
-//     if (!validOtp || validOtp.expiresAt < new Date()) {
-//       return res.status(400).json({ message: "Invalid or expired OTP" });
-//     }
+//   console.log("req.body:", req.body);
+//   console.log("req.file:", req.file);
 
-//     const hashedPassword = await bcrypt.hash(password, 10);
-//     const photoUrl = req.file?.path || "";
+//   let photoUrl = "";
+//   if (req.file) {
+//     photoUrl = req.file.path;
+//   }
+
+//   try {
+//     const exists = await Member.findOne({ email });
+//     if (exists) return res.status(400).json({ message: "Email already used" });
+
+//     const hashed = await bcrypt.hash(password, 10);
+
 //     const member = await Member.create({
 //       photo: photoUrl,
 //       name,
-//       age: Number(age),
+//       age: Number(age), // convert to number
 //       gender,
 //       location,
 //       occupation,
@@ -134,42 +55,121 @@ exports.register = async (req, res) => {
 //       username,
 //       email,
 //       phoneNumber,
-//       password: hashedPassword,
+//       password: hashed,
 //       description,
 //     });
 
-//     await validOtp.deleteOne();
 //     const token = generateToken(member._id);
 //     res.status(201).json({ member, token });
 //   } catch (err) {
 //     console.error("Registration error:", err);
 //     res
 //       .status(500)
-//       .json({ message: "Error completing registration", error: err.message });
+//       .json({ message: "Error registering user", error: err.message });
 //   }
 // };
+exports.register = async (req, res) => {
+  const { email } = req.body;
 
-// exports.sendOtp = async (req, res) => {
-//   const { email } = req.body;
-//   if (!email) return res.status(400).json({ message: "Email is required" });
-//   try {
-//     const existing = await Member.findOne({ email });
-//     if (existing)
-//       return res.status(400).json({ message: "Email already in use" });
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
 
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-//     await Otp.create({
-//       email,
-//       otp,
-//       expiresAt: new Date(Date.now() + 10 * 60000),
-//     });
-//     await sendOtpEmail(email, otp);
-//     res.status(200).json({ message: "OTP sent to email" });
-//   } catch (err) {
-//     console.error("OTP error:", err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
+  try {
+    const existing = await Member.findOne({ email });
+    if (existing)
+      return res.status(400).json({ message: "Email already in use" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await Otp.create({
+      email,
+      otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+    });
+
+    await sendOtpEmail(email, otp);
+
+    res.status(200).json({ message: "OTP sent to email" });
+  } catch (error) {
+    console.error("Error sending OTP:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Step 2: Verify OTP and Complete Registration
+exports.verifyAndCompleteRegistration = async (req, res) => {
+  const {
+    name,
+    age,
+    gender,
+    location,
+    occupation,
+    maritalStatus,
+    relationshipType,
+    username,
+    email,
+    phoneNumber,
+    password,
+    description,
+    otp,
+  } = req.body;
+  try {
+    const validOtp = await Otp.findOne({ email, otp });
+    if (!validOtp || validOtp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const photoUrl = req.file?.path || "";
+    const member = await Member.create({
+      photo: photoUrl,
+      name,
+      age: Number(age),
+      gender,
+      location,
+      occupation,
+      maritalStatus,
+      relationshipType,
+      username,
+      email,
+      phoneNumber,
+      password: hashedPassword,
+      description,
+    });
+
+    await validOtp.deleteOne();
+    const token = generateToken(member._id);
+    res.status(201).json({ member, token });
+  } catch (err) {
+    console.error("Registration error:", err);
+    res
+      .status(500)
+      .json({ message: "Error completing registration", error: err.message });
+  }
+};
+
+exports.sendOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email is required" });
+  try {
+    const existing = await Member.findOne({ email });
+    if (existing)
+      return res.status(400).json({ message: "Email already in use" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await Otp.create({
+      email,
+      otp,
+      expiresAt: new Date(Date.now() + 10 * 60000),
+    });
+    await sendOtpEmail(email, otp);
+    res.status(200).json({ message: "OTP sent to email" });
+  } catch (err) {
+    console.error("OTP error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
 
 exports.login = async (req, res) => {
   console.log("Login request body:", req.body);
