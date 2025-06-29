@@ -15,6 +15,7 @@ const {
   logout,
   forgotPassword,
   resetPassword,
+  sendOtp,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -26,6 +27,7 @@ router.post(
   upload.single("photo"),
   verifyAndCompleteRegistration
 );
+router.post("/register/send-otp", sendOtp);
 
 router.post("/login", login);
 router.get("/profile", protect, getProfile);
