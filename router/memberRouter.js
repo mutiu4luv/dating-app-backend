@@ -10,7 +10,7 @@ const {
   updateMember,
   getMembersByRelationshipType,
   getUserStatus,
-  // verifyAndCompleteRegistration,
+  verifyAndCompleteRegistration,
   getSingleMember,
   logout,
   forgotPassword,
