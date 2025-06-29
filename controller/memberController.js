@@ -195,6 +195,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
 
     // ✅ Update online status
+    // update the member's online status and last seen time
     member.isOnline = true;
     member.lastSeen = new Date();
     await member.save();
