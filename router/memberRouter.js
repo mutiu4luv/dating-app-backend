@@ -20,12 +20,12 @@ const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
 // const { getSingleMember } = require("../controller/memberController.js");
 
-router.post("/register", upload.single("photo"), register);
-// router.post(
-//   "/verify-and-complete-registration",
-//   upload.single("photo"),
-//   verifyAndCompleteRegistration
-// );
+router.post("/register", register);
+router.post(
+  "/verify-and-complete-registration",
+  upload.single("photo"),
+  verifyAndCompleteRegistration
+);
 
 router.post("/login", login);
 router.get("/profile", protect, getProfile);
