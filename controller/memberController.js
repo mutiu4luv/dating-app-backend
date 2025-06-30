@@ -373,17 +373,24 @@ exports.getUserStatus = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const lastSeenRaw = user.lastSeen;
-    const lastSeenRelative = lastSeenRaw ? dayjs(lastSeenRaw).fromNow() : null;
-    const lastSeenExact = lastSeenRaw
-      ? dayjs(lastSeenRaw).format("MMM D, YYYY [at] h:mm A")
-      : null;
+    const now = dayjs();
+    const lastSeen = dayjs(user.lastSeen);
+    const diffMinutes = now.diff(lastSeen, "minute");
+
+    let isOnline = user.isOnline;
+
+    // Flag offline if inactive for more than 10 minutes
+    if (isOnline && diffMinutes >= 10) {
+      user.isOnline = false;
+      await user.save();
+      isOnline = false;
+    }
 
     res.status(200).json({
-      isOnline: Boolean(user.isOnline),
+      isOnline,
       lastSeen: {
-        relative: lastSeenRelative,
-        exact: lastSeenExact,
+        relative: lastSeen.fromNow(),
+        exact: lastSeen.format("MMM D, YYYY [at] h:mm A"),
       },
     });
   } catch (err) {
