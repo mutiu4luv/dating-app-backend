@@ -207,6 +207,7 @@ exports.login = async (req, res) => {
         isOnline: member.isOnline,
         lastSeen: member.lastSeen,
         photo: member.photo || null,
+        username: member.username,
       },
     });
   } catch (err) {
