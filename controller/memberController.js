@@ -251,6 +251,14 @@ exports.deleteMember = async (req, res) => {
 
 exports.updateMember = async (req, res) => {
   try {
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      // Example: base64 encode it or save temporarily
+      updateData.photo = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
+    }
     const member = await Member.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
