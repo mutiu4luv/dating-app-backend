@@ -21,12 +21,8 @@ const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
 // const { getSingleMember } = require("../controller/memberController.js");
 
-router.post("/register", register);
-router.post(
-  "/verify-and-complete-registration",
-  upload.single("photo"),
-  verifyAndCompleteRegistration
-);
+router.post("/register/send-otp", register);
+router.post("/register", upload.single("photo"), verifyAndCompleteRegistration);
 router.post("/register/send-otp", sendOtp);
 
 router.post("/login", login);
