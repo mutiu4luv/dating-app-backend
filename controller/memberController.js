@@ -174,17 +174,11 @@ exports.sendOtp = async (req, res) => {
 exports.login = async (req, res) => {
   console.log("Login request body:", req.body);
 
-  if (!req.body.email || !req.body.password) {
+  const { email, password } = req.body;
+
+  if (!email || !password || email === "" || password === "") {
     return res.status(400).json({ message: "Email and password are required" });
   }
-
-  if (req.body.email === "" || req.body.password === "") {
-    return res
-      .status(400)
-      .json({ message: "Email and password cannot be empty" });
-  }
-
-  const { email, password } = req.body;
 
   try {
     const member = await Member.findOne({ email });
@@ -194,14 +188,27 @@ exports.login = async (req, res) => {
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
 
-    // ✅ Update online status
-    // update the member's online status and last seen time
+    // ✅ Update online status and last seen
     member.isOnline = true;
     member.lastSeen = new Date();
     await member.save();
 
     const token = generateToken(member._id);
-    res.json({ member, token });
+
+    // ✅ Send selected public fields only
+    res.json({
+      token,
+      user: {
+        _id: member._id,
+        name: member.name,
+        email: member.email,
+        hasPaid: member.hasPaid || false,
+        subscriptionTier: member.subscriptionTier || "Free",
+        isOnline: member.isOnline,
+        lastSeen: member.lastSeen,
+        photo: member.photo || null,
+      },
+    });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Login error", error: err.message });

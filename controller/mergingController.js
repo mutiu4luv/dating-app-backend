@@ -118,7 +118,6 @@ exports.mergeMembers = async (req, res) => {
       return res.status(400).json({ message: "Members are not compatible" });
     }
 
-    // Check if already merged
     const alreadyMerged = await Merge.findOne({
       $or: [
         { member1: member1._id, member2: member2._id },
@@ -127,19 +126,18 @@ exports.mergeMembers = async (req, res) => {
     });
 
     if (alreadyMerged) {
-      return res
-        .status(400)
-        .json({ message: "These members are already merged" });
+      return res.status(400).json({
+        message: "These members are already merged",
+      });
     }
 
-    // Define limits by tier
     const mergeLimits = {
       Free: 3,
       Basic: 10,
       Standard: 20,
     };
 
-    // 🔄 Update subscription tier if a new plan was purchased
+    // Update subscription tier if changed
     if (plan && plan !== member1.subscriptionTier) {
       member1.subscriptionTier = plan;
     }
@@ -147,7 +145,6 @@ exports.mergeMembers = async (req, res) => {
     const tier = member1.subscriptionTier || "Free";
     const isLimited = mergeLimits.hasOwnProperty(tier);
 
-    // ⏳ Reset counter monthly
     const now = new Date();
     const lastReset = member1.lastMergeReset || new Date(0);
     const isNewMonth =
@@ -159,7 +156,6 @@ exports.mergeMembers = async (req, res) => {
       member1.lastMergeReset = now;
     }
 
-    // Check limit
     if (isLimited) {
       const limit = mergeLimits[tier];
       if (member1.mergeCountThisCycle >= limit) {
@@ -171,9 +167,13 @@ exports.mergeMembers = async (req, res) => {
       member1.mergeCountThisCycle += 1;
     }
 
+    // ✅ Set hasPaid = true if plan is not Free
+    if (plan && plan !== "Free") {
+      member1.hasPaid = true;
+    }
+
     await member1.save();
 
-    // Create new merge
     const newMerge = await Merge.create({
       member1: member1._id,
       member2: member2._id,
@@ -185,6 +185,7 @@ exports.mergeMembers = async (req, res) => {
       message: "Members matched",
       match: newMerge,
       subscriptionTier: member1.subscriptionTier,
+      hasPaid: member1.hasPaid, // ✅ optional: return it to frontend
     });
   } catch (err) {
     console.error("❌ Error merging members:", err);
