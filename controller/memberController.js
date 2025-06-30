@@ -380,7 +380,7 @@ exports.getUserStatus = async (req, res) => {
     let isOnline = user.isOnline;
 
     // Flag offline if inactive for more than 10 minutes
-    if (isOnline && diffMinutes >= 10) {
+    if (isOnline && diffMinutes >= 5) {
       user.isOnline = false;
       await user.save();
       isOnline = false;

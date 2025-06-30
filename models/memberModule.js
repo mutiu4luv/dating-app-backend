@@ -83,6 +83,11 @@ const memberSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    hasPaid: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
