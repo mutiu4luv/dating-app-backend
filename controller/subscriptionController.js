@@ -96,7 +96,7 @@ const axios = require("axios");
 //   }
 // };
 
-const dayjs = require("dayjs"); // use for date calculations
+const dayjs = require("dayjs");
 
 exports.createSubscription = async (req, res) => {
   const subscriptionTier = req.params.plan;
@@ -126,7 +126,7 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Check and reset expired subscription
+    // Reset expired subscription
     const now = new Date();
     if (user.subscriptionExpiresAt && user.subscriptionExpiresAt < now) {
       user.paystackSubscriptionCode = "";
@@ -137,7 +137,7 @@ exports.createSubscription = async (req, res) => {
       user.subscriptionTier = "Free";
       user.mergeCountThisCycle = 0;
       user.subscriptionExpiresAt = null;
-      user.lastMergeReset = new Date(0); // reset to epoch start
+      user.lastMergeReset = new Date(0);
       await user.save();
     }
 
@@ -161,7 +161,7 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    // Handle Free tier downgrade (cancel current plan if exists)
+    // Handle Free tier downgrade
     if (subscriptionTier === "Free") {
       try {
         await queries.cancelSubscription(
@@ -178,7 +178,7 @@ exports.createSubscription = async (req, res) => {
         user.subscriptionTier = "Free";
         user.mergeCountThisCycle = 0;
         user.subscriptionExpiresAt = null;
-        user.lastMergeReset = new Date(); // start tracking from now
+        user.lastMergeReset = new Date();
         await user.save();
 
         return res.status(200).json({
@@ -193,7 +193,7 @@ exports.createSubscription = async (req, res) => {
       }
     }
 
-    // Proceed to create Paystack subscription
+    // Create Paystack subscription
     const url = await queries.createCheckoutSession(
       user.email,
       tier.paystackPlanID,
@@ -201,9 +201,9 @@ exports.createSubscription = async (req, res) => {
     );
 
     user.subscriptionTier = subscriptionTier;
-    user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
-    user.mergeCountThisCycle = 0; // Reset merge usage
-    user.lastMergeReset = new Date(); // Reset cycle start
+    user.subscriptionExpiresAt = dayjs().add(30, "day").toDate(); // Expires in 30 days
+    user.mergeCountThisCycle = 0;
+    user.lastMergeReset = new Date();
     await user.save();
 
     return res.status(200).json({
