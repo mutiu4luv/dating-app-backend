@@ -126,7 +126,8 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true, // if you're using cookies or authorization headers
+    credentials: true,
+    // if you're using cookies or authorization headers
   })
 );
 
