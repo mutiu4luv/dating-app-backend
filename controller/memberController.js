@@ -208,6 +208,7 @@ exports.login = async (req, res) => {
         lastSeen: member.lastSeen,
         photo: member.photo || null,
         username: member.username,
+        isAdmin: member.isAdmin,
       },
     });
   } catch (err) {
