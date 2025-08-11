@@ -357,3 +357,22 @@ exports.initiateSubscription = async (req, res) => {
     res.status(500).json({ message: "Payment initialization failed" });
   }
 };
+
+exports.getAllSubscribers = async (req, res) => {
+  try {
+    const subscribers = await Member.find().select(
+      "email subscriptionTier subscriptionExpiresAt createdAt"
+    );
+
+    return res.status(200).json({
+      hasError: false,
+      count: subscribers.length,
+      data: subscribers,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      hasError: true,
+      message: "Error fetching subscribers: " + err.message,
+    });
+  }
+};
