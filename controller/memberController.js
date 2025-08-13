@@ -14,88 +14,88 @@ dayjs.extend(localizedFormat);
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
 
-// exports.register = async (req, res) => {
-//   const {
-//     name,
-//     age,
-//     gender,
-//     location,
-//     occupation,
-//     maritalStatus,
-//     relationshipType,
-//     username,
-//     email,
-//     phoneNumber,
-//     password,
-//     description,
-//   } = req.body;
-//   console.log("req.body:", req.body);
-//   console.log("req.file:", req.file);
-
-//   let photoUrl = "";
-//   if (req.file) {
-//     photoUrl = req.file.path;
-//   }
-
-//   try {
-//     const exists = await Member.findOne({ email });
-//     if (exists) return res.status(400).json({ message: "Email already used" });
-
-//     const hashed = await bcrypt.hash(password, 10);
-
-//     const member = await Member.create({
-//       photo: photoUrl,
-//       name,
-//       age: Number(age), // convert to number
-//       gender,
-//       location,
-//       occupation,
-//       maritalStatus,
-//       relationshipType,
-//       username,
-//       email,
-//       phoneNumber,
-//       password: hashed,
-//       description,
-//     });
-
-//     const token = generateToken(member._id);
-//     res.status(201).json({ member, token });
-//   } catch (err) {
-//     console.error("Registration error:", err);
-//     res
-//       .status(500)
-//       .json({ message: "Error registering user", error: err.message });
-//   }
-// };
 exports.register = async (req, res) => {
-  const { email } = req.body;
+  const {
+    name,
+    age,
+    gender,
+    location,
+    occupation,
+    maritalStatus,
+    relationshipType,
+    username,
+    email,
+    phoneNumber,
+    password,
+    description,
+  } = req.body;
+  console.log("req.body:", req.body);
+  console.log("req.file:", req.file);
 
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
+  let photoUrl = "";
+  if (req.file) {
+    photoUrl = req.file.path;
   }
 
   try {
-    const existing = await Member.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: "Email already in use" });
+    const exists = await Member.findOne({ email });
+    if (exists) return res.status(400).json({ message: "Email already used" });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashed = await bcrypt.hash(password, 10);
 
-    await Otp.create({
+    const member = await Member.create({
+      photo: photoUrl,
+      name,
+      age: Number(age), // convert to number
+      gender,
+      location,
+      occupation,
+      maritalStatus,
+      relationshipType,
+      username,
       email,
-      otp,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+      phoneNumber,
+      password: hashed,
+      description,
     });
 
-    await sendOtpEmail(email, otp);
-
-    res.status(200).json({ message: "OTP sent to email" });
-  } catch (error) {
-    console.error("Error sending OTP:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    const token = generateToken(member._id);
+    res.status(201).json({ member, token });
+  } catch (err) {
+    console.error("Registration error:", err);
+    res
+      .status(500)
+      .json({ message: "Error registering user", error: err.message });
   }
 };
+// exports.register = async (req, res) => {
+//   const { email } = req.body;
+
+//   if (!email) {
+//     return res.status(400).json({ message: "Email is required" });
+//   }
+
+//   try {
+//     const existing = await Member.findOne({ email });
+//     if (existing)
+//       return res.status(400).json({ message: "Email already in use" });
+
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+//     await Otp.create({
+//       email,
+//       otp,
+//       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+//     });
+
+//     await sendOtpEmail(email, otp);
+
+//     res.status(200).json({ message: "OTP sent to email" });
+//   } catch (error) {
+//     console.error("Error sending OTP:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 
 // Step 2: Verify OTP and Complete Registration
 exports.verifyAndCompleteRegistration = async (req, res) => {
