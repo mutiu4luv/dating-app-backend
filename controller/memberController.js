@@ -471,7 +471,7 @@ exports.forgotPassword = async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: `"Findyourmatch Support" <${process.env.EMAIL_USER}>`,
+      from: `"Truematchup Support" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Password Reset Instructions",
       html: `
