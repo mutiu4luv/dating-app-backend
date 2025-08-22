@@ -26,17 +26,17 @@ exports.sendOtpEmail = async (email, otp) => {
 
     // Mail content
     const mailOptions = {
-      from: `"Find Your Match 💕" <${process.env.EMAIL_USER}>`,
+      from: `"Truematchup 💕" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Your OTP Code for Registration",
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #ec4899;">Welcome to Find Your Match Dating App!</h2>
+          <h2 style="color: #ec4899;">Welcome to Truematchup Dating App!</h2>
           <p>Hi there 👋,</p>
           <p>Use the OTP below to complete your registration:</p>
           <h1 style="color: #fff; background: #ec4899; padding: 10px 20px; border-radius: 8px; display: inline-block;">${otp}</h1>
           <p style="margin-top: 20px;">This OTP is valid for <strong>10 minutes</strong>. Please don’t share this code with anyone.</p>
-          <p style="margin-top: 30px;">💌 From the <strong>Find Your Match Team</strong></p>
+          <p style="margin-top: 30px;">💌 From the <strong>Truematchup Team</strong></p>
         </div>
       `,
     };
