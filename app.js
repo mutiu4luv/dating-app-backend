@@ -40,7 +40,11 @@ const server = http.createServer(app);
 //     console.log("❌ Client disconnected: " + socket.id);
 //   });
 // });
-const allowedOrigins = [process.env.FRONTEND_URL, "http://localhost:5173"];
+const allowedOrigins = [
+  process.env.MAIN_APP_URL,
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+];
 
 // ✅ Socket.IO setup with same allowed origins
 const io = new Server(server, {
