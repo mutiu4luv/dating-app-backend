@@ -2,6 +2,7 @@ const memberModule = require("../models/memberModule.js");
 // const Member = require("../models/memberModule.js");
 // const Merge = require("../models/mergeModel.js");
 const Merge = require("../models/model/mergesmodel.js");
+const Subscription = require("../models/subscriptionMddel.js"); // adjust if needed
 
 // exports.mergeMembers = async (req, res) => {
 //   const { memberId1, memberId2, plan } = req.body;
@@ -218,17 +219,20 @@ exports.getMergeStatuses = async (req, res) => {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    const latestSub = await memberModule.findOne({ member: member1 }).sort({
+    // Find the latest subscription for this member
+    const latestSub = await Subscription.findOne({ member: member1 }).sort({
       createdAt: -1,
     });
 
     let hasPaid = false;
     let subscriptionActive = false;
+    let expired = true;
 
     if (latestSub) {
-      hasPaid = true;
-      const subEnd = moment(latestSub.createdAt).add(1, "month");
+      const subEnd = moment(latestSub.createdAt).add(30, "days");
       subscriptionActive = moment().isBefore(subEnd);
+      hasPaid = subscriptionActive;
+      expired = !subscriptionActive;
     }
 
     return res.status(200).json({
@@ -236,6 +240,7 @@ exports.getMergeStatuses = async (req, res) => {
       isMerged,
       email: member.email,
       subscriptionActive,
+      expired,
     });
   } catch (err) {
     console.error("Status check failed:", err);
