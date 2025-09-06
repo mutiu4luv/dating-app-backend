@@ -219,20 +219,20 @@ exports.getMergeStatuses = async (req, res) => {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    // Find the latest subscription for this member
-    const latestSub = await Subscription.findOne({ member: member1 }).sort({
-      createdAt: -1,
-    });
-
     let hasPaid = false;
     let subscriptionActive = false;
     let expired = true;
 
-    if (latestSub) {
-      const subEnd = moment(latestSub.createdAt).add(30, "days");
-      subscriptionActive = moment().isBefore(subEnd);
-      hasPaid = subscriptionActive;
-      expired = !subscriptionActive;
+    const now = new Date();
+    // Subscription is active if subscriptionExpiresAt is in the future and tier is not Free
+    if (
+      member.subscriptionExpiresAt &&
+      member.subscriptionExpiresAt > now &&
+      member.subscriptionTier !== "Free"
+    ) {
+      subscriptionActive = true;
+      hasPaid = true;
+      expired = false;
     }
 
     return res.status(200).json({
