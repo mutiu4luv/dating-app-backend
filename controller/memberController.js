@@ -375,7 +375,6 @@ exports.getSingleMember = async (req, res) => {
     res.status(500).json({ error: "Server error fetching member." });
   }
 };
-
 exports.getUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -397,7 +396,7 @@ exports.getUserStatus = async (req, res) => {
     let isOnline = user.isOnline;
 
     // Flag offline if inactive for more than 10 minutes
-    if (isOnline && diffMinutes >= 5) {
+    if (isOnline && diffMinutes >= 10) {
       user.isOnline = false;
       await user.save();
       isOnline = false;

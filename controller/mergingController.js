@@ -206,15 +206,13 @@ exports.getMergeStatuses = async (req, res) => {
   }
 
   try {
-    // Cast to ObjectId if needed
+    // Cast to ObjectId for robust querying
     let m1 = member1,
       m2 = member2;
     try {
       m1 = mongoose.Types.ObjectId(member1);
       m2 = mongoose.Types.ObjectId(member2);
-    } catch (e) {
-      // fallback to string if not valid ObjectId
-    }
+    } catch (e) {}
 
     const existingMerge = await Merge.findOne({
       $or: [
