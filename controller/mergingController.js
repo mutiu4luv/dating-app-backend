@@ -196,6 +196,7 @@ exports.mergeMembers = async (req, res) => {
     });
   }
 };
+const mongoose = require("mongoose");
 
 exports.getMergeStatuses = async (req, res) => {
   const { member1, member2 } = req.query;
@@ -205,10 +206,20 @@ exports.getMergeStatuses = async (req, res) => {
   }
 
   try {
+    // Cast to ObjectId if needed
+    let m1 = member1,
+      m2 = member2;
+    try {
+      m1 = mongoose.Types.ObjectId(member1);
+      m2 = mongoose.Types.ObjectId(member2);
+    } catch (e) {
+      // fallback to string if not valid ObjectId
+    }
+
     const existingMerge = await Merge.findOne({
       $or: [
-        { member1, member2 },
-        { member1: member2, member2: member1 },
+        { member1: m1, member2: m2 },
+        { member1: m2, member2: m1 },
       ],
     });
 
@@ -224,7 +235,6 @@ exports.getMergeStatuses = async (req, res) => {
     let expired = true;
 
     const now = new Date();
-    // Subscription is active if subscriptionExpiresAt is in the future and tier is not Free
     if (
       member.subscriptionExpiresAt &&
       member.subscriptionExpiresAt > now &&
@@ -234,6 +244,17 @@ exports.getMergeStatuses = async (req, res) => {
       hasPaid = true;
       expired = false;
     }
+
+    // Debug log
+    console.log({
+      member1,
+      member2,
+      isMerged,
+      subscriptionExpiresAt: member.subscriptionExpiresAt,
+      subscriptionTier: member.subscriptionTier,
+      now,
+      expired,
+    });
 
     return res.status(200).json({
       hasPaid,
