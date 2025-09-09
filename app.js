@@ -41,7 +41,7 @@ const server = http.createServer(app);
 //   });
 // });
 const allowedOrigins = [
-  process.env.MAIN_APP_URL,
+  "https://truematchup.com",
   process.env.FRONTEND_URL,
   "http://localhost:5173",
 ];
