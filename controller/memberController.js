@@ -274,7 +274,6 @@ exports.updateMember = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // ✅ Get members by relationship type (same type only)
 exports.getMembersByRelationshipType = async (req, res) => {
   try {
@@ -286,15 +285,25 @@ exports.getMembersByRelationshipType = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 2️⃣ Find members with the same relationshipType (case-insensitive)
+    // 2️⃣ Normalize the relationshipType (make lowercase to match consistently)
+    const relType = currentUser.relationshipType?.toLowerCase();
+
+    if (!relType) {
+      return res
+        .status(400)
+        .json({ message: "Relationship type not set for this user" });
+    }
+
+    // 3️⃣ Fetch all members with the same relationshipType (case-insensitive)
     const matches = await Member.find({
       _id: { $ne: currentUser._id },
-      relationshipType: new RegExp(`^${currentUser.relationshipType}$`, "i"), // match same relationship type
+      relationshipType: { $regex: `^${relType}$`, $options: "i" }, // ensures case-insensitive match
     });
 
-    // 3️⃣ Return members that match the same relationship type
+    // 4️⃣ Return results
     res.status(200).json({
       message: `Members with relationship type '${currentUser.relationshipType}' fetched successfully.`,
+      count: matches.length,
       matches,
     });
   } catch (err) {
