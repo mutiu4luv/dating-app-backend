@@ -275,40 +275,34 @@ exports.updateMember = async (req, res) => {
   }
 };
 
+// ✅ Get members by relationship type (same type only)
 exports.getMembersByRelationshipType = async (req, res) => {
   try {
     const userId = req.params.id;
+
+    // 1️⃣ Find the current user
     const currentUser = await Member.findById(userId);
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const relType = (currentUser.relationshipType || "").toLowerCase();
-    const userGender = (currentUser.gender || "").toLowerCase();
-    const oppositeGenderTypes = ["marriage", "friendship", "dating"];
-    let genderQuery = {};
-
-    if (oppositeGenderTypes.includes(relType)) {
-      // Opposite gender for these types (case-insensitive)
-      genderQuery = {
-        gender: userGender === "male" ? /female/i : /male/i,
-      };
-    } else {
-      // Same gender for all other types (case-insensitive)
-      genderQuery = { gender: new RegExp(`^${userGender}$`, "i") };
-    }
-
+    // 2️⃣ Find members with the same relationshipType (case-insensitive)
     const matches = await Member.find({
-      relationshipType: currentUser.relationshipType,
       _id: { $ne: currentUser._id },
-      ...genderQuery,
+      relationshipType: new RegExp(`^${currentUser.relationshipType}$`, "i"), // match same relationship type
     });
 
-    res.status(200).json({ matches });
+    // 3️⃣ Return members that match the same relationship type
+    res.status(200).json({
+      message: `Members with relationship type '${currentUser.relationshipType}' fetched successfully.`,
+      matches,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Error fetching members:", err);
+    res.status(500).json({ message: "Server error. Please try again later." });
   }
 };
+
 // exports.getMatchesByLocation = async (req, res) => {
 //   try {
 //     const userId = req.params.id;
