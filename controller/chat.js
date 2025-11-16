@@ -72,6 +72,30 @@ exports.getChatMessages = async (req, res) => {
   }
 };
 
+exports.saveMessage = async (req, res) => {
+  try {
+    const { senderId, receiverId, content, room } = req.body;
+
+    const sender = await Member.findById(senderId);
+    if (!sender) return res.status(404).json({ error: "User not found" });
+
+    // 🔥 subscription check
+    if (new Date(sender.subscriptionExpiresAt) < new Date()) {
+      return res.status(403).json({
+        error: "Your subscription has expired. Renew to continue chatting.",
+      });
+    }
+
+    // Save the message
+    const message = new Message({ senderId, receiverId, content, room });
+    const saved = await message.save();
+    return res.status(201).json(saved);
+  } catch (err) {
+    console.error("❌ Message saving failed:", err.message);
+    res.status(500).json({ error: "Failed to save message" });
+  }
+};
+
 // exports.saveMessage = async (req, res) => {
 //   try {
 //     const { senderId, receiverId, content, room } = req.body;
@@ -80,44 +104,24 @@ exports.getChatMessages = async (req, res) => {
 //       return res.status(400).json({ error: "Missing required fields" });
 //     }
 
+//     if (
+//       !mongoose.Types.ObjectId.isValid(senderId) ||
+//       !mongoose.Types.ObjectId.isValid(receiverId)
+//     ) {
+//       return res.status(400).json({ error: "Invalid sender or receiver ID" });
+//     }
+
 //     const message = new Message({ senderId, receiverId, content, room });
 //     const saved = await message.save();
 
 //     return res.status(201).json(saved);
 //   } catch (err) {
-//     console.error("❌ Message saving failed:", err.message); // 👈 logs real error
+//     console.error("❌ Message saving failed:", err.message);
 //     res
 //       .status(500)
 //       .json({ error: "Failed to save message", details: err.message });
 //   }
 // };
-
-exports.saveMessage = async (req, res) => {
-  try {
-    const { senderId, receiverId, content, room } = req.body;
-
-    if (!senderId || !receiverId || !content || !room) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    if (
-      !mongoose.Types.ObjectId.isValid(senderId) ||
-      !mongoose.Types.ObjectId.isValid(receiverId)
-    ) {
-      return res.status(400).json({ error: "Invalid sender or receiver ID" });
-    }
-
-    const message = new Message({ senderId, receiverId, content, room });
-    const saved = await message.save();
-
-    return res.status(201).json(saved);
-  } catch (err) {
-    console.error("❌ Message saving failed:", err.message);
-    res
-      .status(500)
-      .json({ error: "Failed to save message", details: err.message });
-  }
-};
 
 exports.getUserConversations = async (req, res) => {
   const { userId } = req.params;
