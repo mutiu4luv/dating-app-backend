@@ -360,7 +360,7 @@ exports.initiateSubscription = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const callback_url = `dating-app-git-main-mutiu4luvs-projects.vercel.app/merge/${member1}/${member2}`;
+    const callback_url = `https://dating-app-git-main-mutiu4luvs-projects.vercel.app/merge/${member1}/${member2}`;
 
     const paystackRes = await axios.post(
       "https://api.paystack.co/transaction/initialize",
