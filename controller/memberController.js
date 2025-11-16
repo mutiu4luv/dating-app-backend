@@ -285,19 +285,21 @@ exports.getMembersByRelationshipType = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 2️⃣ Normalize the relationshipType (make lowercase to match consistently)
+    // 2️⃣ Normalize the relationshipType (lowercase)
     const relType = currentUser.relationshipType?.toLowerCase();
-
     if (!relType) {
       return res
         .status(400)
         .json({ message: "Relationship type not set for this user" });
     }
 
-    // 3️⃣ Fetch all members with the same relationshipType (case-insensitive)
-    const matches = await Member.find({
+    // 3️⃣ Fetch all members with the same relationshipType
+    let matches = await Member.find({
       _id: { $ne: currentUser._id },
-      relationshipType: { $regex: `^${relType}$`, $options: "i" }, // ensures case-insensitive match
+      relationshipType: { $regex: `^${relType}$`, $options: "i" },
+    }).sort({
+      isOnline: -1, // 🔥 online users first
+      lastSeen: -1, // 🔥 recently active next
     });
 
     // 4️⃣ Return results
@@ -396,17 +398,14 @@ exports.getUserStatus = async (req, res) => {
     const lastSeen = dayjs(user.lastSeen);
     const diffMinutes = now.diff(lastSeen, "minute");
 
-    let isOnline = user.isOnline;
-
-    // Flag offline if inactive for more than 10 minutes
-    if (isOnline && diffMinutes >= 10) {
+    // Auto-set offline after 10 minutes inactivity
+    if (user.isOnline && diffMinutes >= 10) {
       user.isOnline = false;
       await user.save();
-      isOnline = false;
     }
 
     res.status(200).json({
-      isOnline,
+      isOnline: user.isOnline,
       lastSeen: {
         relative: lastSeen.fromNow(),
         exact: lastSeen.format("MMM D, YYYY [at] h:mm A"),
