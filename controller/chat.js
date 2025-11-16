@@ -19,6 +19,25 @@ const mongoose = require("mongoose");
 //   }
 // };
 
+// exports.getChatMessages = async (req, res) => {
+//   const { member1, member2 } = req.query;
+
+//   if (!member1 || !member2) {
+//     return res
+//       .status(400)
+//       .json({ error: "Both member1 and member2 are required." });
+//   }
+
+//   const room = [member1, member2].sort().join("_");
+
+//   try {
+//     const messages = await Message.find({ room }).sort({ createdAt: 1 }); // oldest to newest
+//     res.json(messages);
+//   } catch (err) {
+//     console.error("❌ Error fetching messages", err);
+//     res.status(500).json({ error: "Server error fetching messages." });
+//   }
+// };
 exports.getChatMessages = async (req, res) => {
   const { member1, member2 } = req.query;
 
@@ -31,13 +50,28 @@ exports.getChatMessages = async (req, res) => {
   const room = [member1, member2].sort().join("_");
 
   try {
-    const messages = await Message.find({ room }).sort({ createdAt: 1 }); // oldest to newest
+    // 🔥 CHECK SUBSCRIPTION
+    const sender = await Member.findById(member1);
+    if (!sender) return res.status(404).json({ error: "User not found" });
+
+    const now = new Date(sender.subscriptionExpiresAt);
+
+    if (now < new Date()) {
+      return res.status(403).json({
+        error: "Your subscription has expired. Renew to continue chatting.",
+        expired: true,
+      });
+    }
+
+    // 👌 If subscription valid → fetch messages
+    const messages = await Message.find({ room }).sort({ createdAt: 1 });
     res.json(messages);
   } catch (err) {
     console.error("❌ Error fetching messages", err);
     res.status(500).json({ error: "Server error fetching messages." });
   }
 };
+
 // exports.saveMessage = async (req, res) => {
 //   try {
 //     const { senderId, receiverId, content, room } = req.body;
