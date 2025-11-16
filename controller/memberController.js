@@ -388,7 +388,7 @@ exports.getUserStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    const user = await Member.findById(userId).select("isOnline lastSeen");
+    let user = await Member.findById(userId).select("isOnline lastSeen");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -398,17 +398,23 @@ exports.getUserStatus = async (req, res) => {
     const lastSeen = dayjs(user.lastSeen);
     const diffMinutes = now.diff(lastSeen, "minute");
 
-    // Auto-set offline after 10 minutes inactivity
+    // 1️⃣ Auto-set offline after 10 minutes
     if (user.isOnline && diffMinutes >= 10) {
       user.isOnline = false;
-      await user.save();
     }
+
+    // 2️⃣ Auto-refresh lastSeen if user is ONLINE (fixes your problem)
+    if (user.isOnline) {
+      user.lastSeen = new Date();
+    }
+
+    await user.save();
 
     res.status(200).json({
       isOnline: user.isOnline,
       lastSeen: {
-        relative: lastSeen.fromNow(),
-        exact: lastSeen.format("MMM D, YYYY [at] h:mm A"),
+        relative: dayjs(user.lastSeen).fromNow(),
+        exact: dayjs(user.lastSeen).format("MMM D, YYYY [at] h:mm A"),
       },
     });
   } catch (err) {
