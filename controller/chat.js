@@ -56,12 +56,12 @@ exports.getChatMessages = async (req, res) => {
 
     const now = new Date(sender.subscriptionExpiresAt);
 
-    if (now < new Date()) {
-      return res.status(403).json({
-        error: "Your subscription has expired. Renew to continue chatting.",
-        expired: true,
-      });
-    }
+    // if (now < new Date()) {
+    //   return res.status(403).json({
+    //     error: "Your subscription has expired. Renew to continue chatting.",
+    //     expired: true,
+    //   });
+    // }
 
     // 👌 If subscription valid → fetch messages
     const messages = await Message.find({ room }).sort({ createdAt: 1 });
