@@ -80,11 +80,11 @@ exports.saveMessage = async (req, res) => {
     if (!sender) return res.status(404).json({ error: "User not found" });
 
     // 🔥 subscription check
-    if (new Date(sender.subscriptionExpiresAt) < new Date()) {
-      return res.status(403).json({
-        error: "Your subscription has expired. Renew to continue chatting.",
-      });
-    }
+    // if (new Date(sender.subscriptionExpiresAt) < new Date()) {
+    //   return res.status(403).json({
+    //     error: "Your subscription has expired. Renew to continue chatting.",
+    //   });
+    // }
 
     // Save the message
     const message = new Message({ senderId, receiverId, content, room });
