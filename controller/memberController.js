@@ -285,7 +285,7 @@ exports.getMembersByRelationshipType = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 2️⃣ Normalize the relationshipType (lowercase)
+    // 2️⃣ Normalize relationshipType
     const relType = currentUser.relationshipType?.toLowerCase();
     if (!relType) {
       return res
@@ -293,14 +293,25 @@ exports.getMembersByRelationshipType = async (req, res) => {
         .json({ message: "Relationship type not set for this user" });
     }
 
+    // ⛔ STOP — Do NOT change your current logic
     // 3️⃣ Fetch all members with the same relationshipType
     let matches = await Member.find({
       _id: { $ne: currentUser._id },
       relationshipType: { $regex: `^${relType}$`, $options: "i" },
     }).sort({
-      isOnline: -1, // 🔥 online users first
-      lastSeen: -1, // 🔥 recently active next
+      isOnline: -1,
+      lastSeen: -1,
     });
+
+    // ⭐ NEW LOGIC — Match by gender
+    // If current user is male → show only females
+    // If current user is female → show only males
+    if (currentUser.gender) {
+      const targetGender =
+        currentUser.gender.toLowerCase() === "male" ? "female" : "male";
+
+      matches = matches.filter((m) => m.gender?.toLowerCase() === targetGender);
+    }
 
     // 4️⃣ Return results
     res.status(200).json({
@@ -310,7 +321,9 @@ exports.getMembersByRelationshipType = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching members:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+    res.status(500).json({
+      message: "Server error. Please try again later.",
+    });
   }
 };
 
