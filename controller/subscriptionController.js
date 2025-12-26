@@ -220,40 +220,60 @@ exports.createSubscription = async (req, res) => {
   }
 };
 exports.confirmSubscriptionPayment = async (req, res) => {
-  const { memberId, plan } = req.body;
+  try {
+    const { memberId, plan } = req.body;
 
-  if (!memberId || !plan) {
-    return res.status(400).json({ message: "Missing memberId or plan" });
+    // ✅ Validate input
+    if (!memberId || !plan) {
+      return res.status(400).json({
+        message: "Missing memberId or plan",
+      });
+    }
+
+    // ✅ Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(memberId)) {
+      return res.status(400).json({
+        message: "Invalid memberId",
+      });
+    }
+
+    // ✅ Free plan cannot be confirmed
+    if (plan === "Free") {
+      return res.status(400).json({
+        message: "Free plan cannot be confirmed as paid",
+      });
+    }
+
+    const user = await Member.findById(memberId);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const now = dayjs();
+
+    user.subscriptionTier = plan;
+    user.subscriptionExpiresAt = now.add(30, "day").toDate();
+    user.mergeCountThisCycle = 0;
+    user.lastMergeReset = new Date();
+    user.hasPaid = true;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Subscription activated",
+      expiresAt: user.subscriptionExpiresAt,
+      hasPaid: true,
+    });
+  } catch (err) {
+    console.error("❌ confirmSubscriptionPayment failed:", err);
+
+    return res.status(500).json({
+      message: "Failed to confirm subscription payment",
+      error: err.message,
+    });
   }
-
-  const user = await Member.findById(memberId);
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  const now = dayjs();
-
-  user.subscriptionTier = plan;
-  user.subscriptionExpiresAt = now.add(30, "day").toDate();
-  user.mergeCountThisCycle = 0;
-  user.lastMergeReset = new Date();
-  if (plan === "Free") {
-    return res
-      .status(400)
-      .json({ message: "Free plan cannot be confirmed as paid" });
-  }
-  await user.save();
-
-  // return res.status(200).json({
-  //   message: "Subscription activated",
-  //   expiresAt: user.subscriptionExpiresAt,
-  // });
-
-  return res.status(200).json({
-    message: "Subscription activated",
-    expiresAt: user.subscriptionExpiresAt,
-    hasPaid: true,
-  });
 };
 
 // exports.confirmSubscriptionPayment = async (req, res) => {
