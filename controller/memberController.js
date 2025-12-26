@@ -172,51 +172,42 @@ exports.sendOtp = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  console.log("Login request body:", req.body);
-
   const { email, password } = req.body;
 
-  if (!email || !password || email === "" || password === "") {
-    return res.status(400).json({ message: "Email and password are required" });
-  }
-
   try {
-    const member = await Member.findOne({ email });
+    // Find user (Explicitly select password just in case select:false is added later)
+    const member = await Member.findOne({ email }).select("+password");
     if (!member) return res.status(404).json({ message: "User not found" });
 
+    //  Compare
     const isMatch = await bcrypt.compare(password, member.password);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
 
-    // ✅ Update online status and last seen
-    member.isOnline = true;
-    member.lastSeen = new Date();
-    await member.save();
+    const updatedMember = await Member.findByIdAndUpdate(
+      member._id,
+      { isOnline: true, lastSeen: new Date() },
+      { new: true }
+    );
 
-    const token = generateToken(member._id);
+    const token = generateToken(updatedMember._id);
 
-    // ✅ Send selected public fields only
     res.json({
       token,
       user: {
-        _id: member._id,
-        name: member.name,
-        email: member.email,
-        hasPaid: member.hasPaid || false,
-        subscriptionTier: member.subscriptionTier || "Free",
-        isOnline: member.isOnline,
-        lastSeen: member.lastSeen,
-        photo: member.photo || null,
-        username: member.username,
-        isAdmin: member.isAdmin,
+        _id: updatedMember._id,
+        name: updatedMember.name,
+        email: updatedMember.email,
+        hasPaid: updatedMember.hasPaid || false,
+        isAdmin: updatedMember.isAdmin || false,
+        username: updatedMember.username,
+        photo: updatedMember.photo,
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
     res.status(500).json({ message: "Login error", error: err.message });
   }
 };
-
 exports.getAllMembers = async (req, res) => {
   try {
     const members = await Member.find();
