@@ -206,13 +206,8 @@ exports.getMergeStatuses = async (req, res) => {
   }
 
   try {
-    // Cast to ObjectId for robust querying
-    let m1 = member1,
-      m2 = member2;
-    try {
-      m1 = mongoose.Types.ObjectId(member1);
-      m2 = mongoose.Types.ObjectId(member2);
-    } catch (e) {}
+    const m1 = new mongoose.Types.ObjectId(member1);
+    const m2 = new mongoose.Types.ObjectId(member2);
 
     const existingMerge = await Merge.findOne({
       $or: [
@@ -221,59 +216,28 @@ exports.getMergeStatuses = async (req, res) => {
       ],
     });
 
-    const isMerged = !!existingMerge;
+    const isMerged = Boolean(existingMerge);
 
-    const member = await memberModule.findById(member1);
+    const member = await Member.findById(member1);
     if (!member) {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    // let hasPaid = member.hasPaid === true;
+    const now = new Date();
+
     const hasPaid =
       member.subscriptionTier !== "Free" &&
       member.subscriptionExpiresAt &&
-      member.subscriptionExpiresAt > new Date();
+      member.subscriptionExpiresAt > now;
+
     const expired = !hasPaid;
 
-    // let subscriptionActive = false;
-    // let expired = true;
-
-    const now = new Date();
-
-    if (member.subscriptionTier !== "Free") {
-      if (!member.subscriptionExpiresAt) {
-        subscriptionActive = true;
-        expired = false;
-      } else if (member.subscriptionExpiresAt > now) {
-        subscriptionActive = true;
-        expired = false;
-      }
-    }
-
-    // Debug log
-    console.log({
-      member1,
-      member2,
-      isMerged,
-      subscriptionExpiresAt: member.subscriptionExpiresAt,
-      subscriptionTier: member.subscriptionTier,
-      now,
-      expired,
-    });
     return res.status(200).json({
       isMerged,
       hasPaid,
       expired,
       email: member.email,
     });
-
-    // return res.status(200).json({
-    //   hasPaid,
-    //   isMerged,
-    //   email: member.email,
-    //   subscriptionActive,
-    //   expired,
-    // });
   } catch (err) {
     console.error("Status check failed:", err);
     return res.status(500).json({ message: "Internal server error." });
