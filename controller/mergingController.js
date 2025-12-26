@@ -228,19 +228,20 @@ exports.getMergeStatuses = async (req, res) => {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    let hasPaid = false;
+    let hasPaid = member.hasPaid === true;
     let subscriptionActive = false;
     let expired = true;
 
     const now = new Date();
-    if (
-      member.subscriptionExpiresAt &&
-      member.subscriptionExpiresAt > now &&
-      member.subscriptionTier !== "Free"
-    ) {
-      subscriptionActive = true;
-      hasPaid = true;
-      expired = false;
+
+    if (member.subscriptionTier !== "Free") {
+      if (!member.subscriptionExpiresAt) {
+        subscriptionActive = true;
+        expired = false;
+      } else if (member.subscriptionExpiresAt > now) {
+        subscriptionActive = true;
+        expired = false;
+      }
     }
 
     // Debug log
