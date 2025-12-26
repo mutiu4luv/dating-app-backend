@@ -237,7 +237,11 @@ exports.confirmSubscriptionPayment = async (req, res) => {
   user.subscriptionExpiresAt = now.add(30, "day").toDate();
   user.mergeCountThisCycle = 0;
   user.lastMergeReset = new Date();
-
+  if (plan === "Free") {
+    return res
+      .status(400)
+      .json({ message: "Free plan cannot be confirmed as paid" });
+  }
   await user.save();
 
   // return res.status(200).json({

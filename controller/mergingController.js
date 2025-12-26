@@ -225,10 +225,10 @@ exports.getMergeStatuses = async (req, res) => {
 
     const now = new Date();
 
+    // ✅ BACKWARD + FORWARD SAFE
     const hasPaid =
       member.subscriptionTier !== "Free" &&
-      member.subscriptionExpiresAt &&
-      member.subscriptionExpiresAt > now;
+      (!member.subscriptionExpiresAt || member.subscriptionExpiresAt > now);
 
     const expired = !hasPaid;
 
