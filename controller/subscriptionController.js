@@ -240,9 +240,15 @@ exports.confirmSubscriptionPayment = async (req, res) => {
 
   await user.save();
 
+  // return res.status(200).json({
+  //   message: "Subscription activated",
+  //   expiresAt: user.subscriptionExpiresAt,
+  // });
+
   return res.status(200).json({
     message: "Subscription activated",
     expiresAt: user.subscriptionExpiresAt,
+    hasPaid: true,
   });
 };
 
