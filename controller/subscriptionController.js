@@ -99,8 +99,9 @@ const axios = require("axios");
 const dayjs = require("dayjs");
 
 exports.createSubscription = async (req, res) => {
-  const subscriptionTier = req.params.plan;
-  const id = req.params.id;
+  // const subscriptionTier = req.params.plan;
+  // const id = req.params.id;
+  const { plan: subscriptionTier, member1: id } = req.body;
 
   if (!id) {
     return res.status(400).json({
