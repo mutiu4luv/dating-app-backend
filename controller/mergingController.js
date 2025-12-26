@@ -218,7 +218,7 @@ exports.getMergeStatuses = async (req, res) => {
 
     const isMerged = Boolean(existingMerge);
 
-    const member = await Member.findById(member1);
+    const member = await memberModule.findById(member1);
     if (!member) {
       return res.status(404).json({ message: "Member not found." });
     }
