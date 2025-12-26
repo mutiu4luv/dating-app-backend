@@ -201,31 +201,42 @@ const mongoose = require("mongoose");
 exports.getMergeStatuses = async (req, res) => {
   const { member1, member2 } = req.query;
 
-  if (!member1 || !member2) {
-    return res.status(400).json({ message: "Member IDs are required." });
+  if (!member1) {
+    return res.status(400).json({ message: "member1 is required." });
   }
 
   try {
+    // ✅ Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(member1)) {
+      return res.status(400).json({ message: "Invalid member1 ID." });
+    }
+
     const m1 = new mongoose.Types.ObjectId(member1);
-    const m2 = new mongoose.Types.ObjectId(member2);
 
-    const existingMerge = await Merge.findOne({
-      $or: [
-        { member1: m1, member2: m2 },
-        { member1: m2, member2: m1 },
-      ],
-    });
+    // member2 can be "upgrade"
+    let isMerged = false;
 
-    const isMerged = Boolean(existingMerge);
+    if (member2 && mongoose.Types.ObjectId.isValid(member2)) {
+      const m2 = new mongoose.Types.ObjectId(member2);
 
-    const member = await memberModule.findById(member1);
+      const existingMerge = await Merge.findOne({
+        $or: [
+          { member1: m1, member2: m2 },
+          { member1: m2, member2: m1 },
+        ],
+      });
+
+      isMerged = Boolean(existingMerge);
+    }
+
+    const member = await Member.findById(m1);
     if (!member) {
       return res.status(404).json({ message: "Member not found." });
     }
 
     const now = new Date();
 
-    // ✅ BACKWARD + FORWARD SAFE
+    // ✅ PAYMENT LOGIC (FIXED)
     const hasPaid =
       member.subscriptionTier !== "Free" &&
       (!member.subscriptionExpiresAt || member.subscriptionExpiresAt > now);
