@@ -200,11 +200,11 @@ exports.createSubscription = async (req, res) => {
       tier.price
     );
 
-    user.subscriptionTier = subscriptionTier;
-    user.subscriptionExpiresAt = dayjs().add(30, "day").toDate(); // Expires in 30 days
-    user.mergeCountThisCycle = 0;
-    user.lastMergeReset = new Date();
-    await user.save();
+    // user.subscriptionTier = subscriptionTier;
+    // user.subscriptionExpiresAt = dayjs().add(30, "day").toDate(); // Expires in 30 days
+    // user.mergeCountThisCycle = 0;
+    // user.lastMergeReset = new Date();
+    // await user.save();
 
     return res.status(200).json({
       hasError: false,
@@ -219,7 +219,6 @@ exports.createSubscription = async (req, res) => {
     });
   }
 };
-
 exports.confirmSubscriptionPayment = async (req, res) => {
   const { memberId, plan } = req.body;
 
@@ -227,36 +226,63 @@ exports.confirmSubscriptionPayment = async (req, res) => {
     return res.status(400).json({ message: "Missing memberId or plan" });
   }
 
-  try {
-    const user = await Member.findById(memberId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    user.subscriptionTier = plan;
-    const now = dayjs();
-    if (
-      user.subscriptionExpiresAt &&
-      dayjs(user.subscriptionExpiresAt).isAfter(now)
-    ) {
-      user.subscriptionExpiresAt = dayjs(user.subscriptionExpiresAt)
-        .add(30, "day")
-        .toDate();
-    } else {
-      user.subscriptionExpiresAt = now.add(30, "day").toDate();
-    }
-    await user.save();
-
-    return res.status(200).json({
-      message: "Subscription activated",
-      expiresAt: user.subscriptionExpiresAt,
-    });
-  } catch (err) {
-    return res
-      .status(500)
-      .json({ message: "Failed to activate subscription", error: err.message });
+  const user = await Member.findById(memberId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
   }
+
+  const now = dayjs();
+
+  user.subscriptionTier = plan;
+  user.subscriptionExpiresAt = now.add(30, "day").toDate();
+  user.mergeCountThisCycle = 0;
+  user.lastMergeReset = new Date();
+
+  await user.save();
+
+  return res.status(200).json({
+    message: "Subscription activated",
+    expiresAt: user.subscriptionExpiresAt,
+  });
 };
+
+// exports.confirmSubscriptionPayment = async (req, res) => {
+//   const { memberId, plan } = req.body;
+
+//   if (!memberId || !plan) {
+//     return res.status(400).json({ message: "Missing memberId or plan" });
+//   }
+
+//   try {
+//     const user = await Member.findById(memberId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     user.subscriptionTier = plan;
+//     const now = dayjs();
+//     if (
+//       user.subscriptionExpiresAt &&
+//       dayjs(user.subscriptionExpiresAt).isAfter(now)
+//     ) {
+//       user.subscriptionExpiresAt = dayjs(user.subscriptionExpiresAt)
+//         .add(30, "day")
+//         .toDate();
+//     } else {
+//       user.subscriptionExpiresAt = now.add(30, "day").toDate();
+//     }
+//     await user.save();
+
+//     return res.status(200).json({
+//       message: "Subscription activated",
+//       expiresAt: user.subscriptionExpiresAt,
+//     });
+//   } catch (err) {
+//     return res
+//       .status(500)
+//       .json({ message: "Failed to activate subscription", error: err.message });
+//   }
+// };
 // exports.getCustomerPortal = async (req, res) => {
 //   const id = req.params.id;
 //   if (!id) {

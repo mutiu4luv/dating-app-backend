@@ -228,9 +228,15 @@ exports.getMergeStatuses = async (req, res) => {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    let hasPaid = member.hasPaid === true;
-    let subscriptionActive = false;
-    let expired = true;
+    // let hasPaid = member.hasPaid === true;
+    const hasPaid =
+      member.subscriptionTier !== "Free" &&
+      member.subscriptionExpiresAt &&
+      member.subscriptionExpiresAt > new Date();
+    const expired = !hasPaid;
+
+    // let subscriptionActive = false;
+    // let expired = true;
 
     const now = new Date();
 
@@ -254,14 +260,20 @@ exports.getMergeStatuses = async (req, res) => {
       now,
       expired,
     });
-
     return res.status(200).json({
-      hasPaid,
       isMerged,
-      email: member.email,
-      subscriptionActive,
+      hasPaid,
       expired,
+      email: member.email,
     });
+
+    // return res.status(200).json({
+    //   hasPaid,
+    //   isMerged,
+    //   email: member.email,
+    //   subscriptionActive,
+    //   expired,
+    // });
   } catch (err) {
     console.error("Status check failed:", err);
     return res.status(500).json({ message: "Internal server error." });
