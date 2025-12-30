@@ -277,7 +277,7 @@ exports.updateMember = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-// ✅ Get members by relationship type (same type only)
+// ✅ Get members by relationship type
 exports.getMembersByRelationshipType = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -296,19 +296,13 @@ exports.getMembersByRelationshipType = async (req, res) => {
         .json({ message: "Relationship type not set for this user" });
     }
 
-    // ⛔ STOP — Do NOT change your current logic
-    // 3️⃣ Fetch all members with the same relationshipType
+    // 3️⃣ Fetch potential matches
     let matches = await Member.find({
       _id: { $ne: currentUser._id },
       relationshipType: { $regex: `^${relType}$`, $options: "i" },
-    }).sort({
-      isOnline: -1,
-      lastSeen: -1,
     });
 
-    // ⭐ NEW LOGIC — Match by gender
-    // If current user is male → show only females
-    // If current user is female → show only males
+    // 4️⃣ Gender filtering (if applicable)
     if (currentUser.gender) {
       const targetGender =
         currentUser.gender.toLowerCase() === "male" ? "female" : "male";
@@ -316,7 +310,20 @@ exports.getMembersByRelationshipType = async (req, res) => {
       matches = matches.filter((m) => m.gender?.toLowerCase() === targetGender);
     }
 
-    // 4️⃣ Return results
+    // 5️⃣ 🔥 FINAL SORT (ONLINE FIRST, THEN MOST RECENT LAST SEEN)
+    matches.sort((a, b) => {
+      // Online users first
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+
+      // Both online or both offline → compare lastSeen
+      const aLastSeen = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+      const bLastSeen = b.lastSeen ? new Date(b.lastSeen).getTime() : 0;
+
+      return bLastSeen - aLastSeen; // most recent first
+    });
+
+    // 6️⃣ Return results
     res.status(200).json({
       message: `Members with relationship type '${currentUser.relationshipType}' fetched successfully.`,
       count: matches.length,
@@ -329,6 +336,53 @@ exports.getMembersByRelationshipType = async (req, res) => {
     });
   }
 };
+
+// exports.getMembersByRelationshipType = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+
+//     // 1️⃣ Find the current user
+//     const currentUser = await Member.findById(userId);
+//     if (!currentUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // 2️⃣ Normalize relationshipType
+//     const relType = currentUser.relationshipType?.toLowerCase();
+//     if (!relType) {
+//       return res
+//         .status(400)
+//         .json({ message: "Relationship type not set for this user" });
+//     }
+
+//     let matches = await Member.find({
+//       _id: { $ne: currentUser._id },
+//       relationshipType: { $regex: `^${relType}$`, $options: "i" },
+//     }).sort({
+//       isOnline: -1,
+//       lastSeen: -1,
+//     });
+
+//     if (currentUser.gender) {
+//       const targetGender =
+//         currentUser.gender.toLowerCase() === "male" ? "female" : "male";
+
+//       matches = matches.filter((m) => m.gender?.toLowerCase() === targetGender);
+//     }
+
+//     // 4️⃣ Return results
+//     res.status(200).json({
+//       message: `Members with relationship type '${currentUser.relationshipType}' fetched successfully.`,
+//       count: matches.length,
+//       matches,
+//     });
+//   } catch (err) {
+//     console.error("Error fetching members:", err);
+//     res.status(500).json({
+//       message: "Server error. Please try again later.",
+//     });
+//   }
+// };
 
 // exports.getMatchesByLocation = async (req, res) => {
 //   try {
