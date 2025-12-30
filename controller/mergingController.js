@@ -203,53 +203,93 @@ const Subscription = require("../models/subscriptionMddel.js"); // adjust if nee
 //   }
 // };
 exports.mergeMembers = async (req, res) => {
-  const { memberId1, memberId2 } = req.body;
+  try {
+    const { memberId1, memberId2 } = req.body;
 
-  const member1 = await memberModule.findById(memberId1);
-  const member2 = await memberModule.findById(memberId2);
+    if (!memberId1 || !memberId2) {
+      return res.status(400).json({ message: "Member IDs are required" });
+    }
 
-  const mergeLimits = {
-    Free: 1,
-    Basic: 10,
-    Standard: 30,
-    Premium: Infinity,
-  };
+    if (memberId1 === memberId2) {
+      return res.status(400).json({ message: "Cannot merge same member" });
+    }
 
-  const tier = member1.subscriptionTier || "Free";
-  const limit = mergeLimits[tier];
+    const member1 = await memberModule.findById(memberId1);
+    const member2 = await memberModule.findById(memberId2);
 
-  // Monthly reset
-  const now = new Date();
-  const lastReset = member1.lastMergeReset || new Date(0);
+    if (!member1 || !member2) {
+      return res.status(404).json({ message: "Member not found" });
+    }
 
-  if (
-    now.getMonth() !== lastReset.getMonth() ||
-    now.getFullYear() !== lastReset.getFullYear()
-  ) {
-    member1.mergeCountThisCycle = 0;
-    member1.lastMergeReset = now;
-  }
+    //  CHECK IF ALREADY MERGED (CRITICAL FIX)
+    const existingMerge = await Merge.findOne({
+      $or: [
+        { member1: memberId1, member2: memberId2 },
+        { member1: memberId2, member2: memberId1 },
+      ],
+    });
 
-  // Limit check (except Premium)
-  if (tier !== "Premium" && member1.mergeCountThisCycle >= limit) {
-    return res.status(403).json({
-      message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
+    if (existingMerge) {
+      return res.status(200).json({
+        match: existingMerge,
+        alreadyMerged: true,
+        subscriptionTier: member1.subscriptionTier,
+        hasPaid: member1.subscriptionTier !== "Free",
+      });
+    }
+
+    //  DETERMINE PLAN
+    const mergeLimits = {
+      Free: 1,
+      Basic: 10,
+      Standard: 30,
+      Premium: Infinity,
+    };
+
+    const tier = member1.subscriptionTier || "Free";
+    const limit = mergeLimits[tier];
+
+    //  MONTHLY RESET
+    const now = new Date();
+    const lastReset = member1.lastMergeReset || new Date(0);
+
+    if (
+      now.getMonth() !== lastReset.getMonth() ||
+      now.getFullYear() !== lastReset.getFullYear()
+    ) {
+      member1.mergeCountThisCycle = 0;
+      member1.lastMergeReset = now;
+    }
+
+    //  LIMIT CHECK (PREMIUM NEVER BLOCKED)
+    if (tier !== "Premium" && member1.mergeCountThisCycle >= limit) {
+      return res.status(403).json({
+        message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
+      });
+    }
+
+    //  CREATE MERGE FIRST
+    const newMerge = await Merge.create({
+      member1: member1._id,
+      member2: member2._id,
+    });
+
+    //  INCREMENT COUNT ONLY AFTER SUCCESS
+    member1.mergeCountThisCycle += 1;
+    await member1.save();
+
+    return res.status(200).json({
+      match: newMerge,
+      subscriptionTier: tier,
+      hasPaid: tier !== "Free",
+    });
+  } catch (err) {
+    console.error("❌ mergeMembers failed:", err);
+    return res.status(500).json({
+      message: "Error merging members",
+      error: err.message,
     });
   }
-
-  member1.mergeCountThisCycle += 1;
-  await member1.save();
-
-  const newMerge = await Merge.create({
-    member1: member1._id,
-    member2: member2._id,
-  });
-
-  return res.status(200).json({
-    match: newMerge,
-    subscriptionTier: tier,
-    hasPaid: tier !== "Free",
-  });
 };
 
 const mongoose = require("mongoose");
