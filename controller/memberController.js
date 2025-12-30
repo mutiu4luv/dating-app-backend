@@ -29,8 +29,6 @@ exports.register = async (req, res) => {
     password,
     description,
   } = req.body;
-  console.log("req.body:", req.body);
-  console.log("req.file:", req.file);
 
   let photoUrl = "";
   if (req.file) {
@@ -38,15 +36,20 @@ exports.register = async (req, res) => {
   }
 
   try {
+    // 1️⃣ Check if email already exists
     const exists = await Member.findOne({ email });
-    if (exists) return res.status(400).json({ message: "Email already used" });
+    if (exists) {
+      return res.status(400).json({ message: "Email already used" });
+    }
 
+    // 2️⃣ Hash password
     const hashed = await bcrypt.hash(password, 10);
 
+    // 3️⃣ CREATE MEMBER (🔥 FIX IS HERE)
     const member = await Member.create({
       photo: photoUrl,
       name,
-      age: Number(age), // convert to number
+      age: Number(age),
       gender,
       location,
       occupation,
@@ -57,17 +60,26 @@ exports.register = async (req, res) => {
       phoneNumber,
       password: hashed,
       description,
+      isOnline: false,
+      lastSeen: new Date(),
     });
 
+    // 4️⃣ Generate token
     const token = generateToken(member._id);
-    res.status(201).json({ member, token });
+
+    res.status(201).json({
+      member,
+      token,
+    });
   } catch (err) {
     console.error("Registration error:", err);
-    res
-      .status(500)
-      .json({ message: "Error registering user", error: err.message });
+    res.status(500).json({
+      message: "Error registering user",
+      error: err.message,
+    });
   }
 };
+
 // exports.register = async (req, res) => {
 //   const { email } = req.body;
 
