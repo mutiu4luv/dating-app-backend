@@ -96,111 +96,160 @@ const Subscription = require("../models/subscriptionMddel.js"); // adjust if nee
 //   }
 // };
 
+// exports.mergeMembers = async (req, res) => {
+//   const { memberId1, memberId2, plan } = req.body;
+
+//   if (!memberId1 || !memberId2) {
+//     return res.status(400).json({ message: "Member IDs are required" });
+//   }
+
+//   if (memberId1 === memberId2) {
+//     return res.status(400).json({ message: "Cannot merge the same member" });
+//   }
+
+//   try {
+//     const member1 = await memberModule.findById(memberId1);
+//     const member2 = await memberModule.findById(memberId2);
+
+//     if (!member1 || !member2) {
+//       return res.status(404).json({ message: "One or both members not found" });
+//     }
+
+//     if (member1.relationshipType !== member2.relationshipType) {
+//       return res.status(400).json({ message: "Members are not compatible" });
+//     }
+
+//     // ✅ Already merged
+//     const existingMerge = await Merge.findOne({
+//       $or: [
+//         { member1: member1._id, member2: member2._id },
+//         { member1: member2._id, member2: member1._id },
+//       ],
+//     });
+
+//     if (existingMerge) {
+//       return res.status(409).json({
+//         message: "These members are already merged",
+//         match: existingMerge,
+//       });
+//     }
+
+//     // ✅ Allowed plans
+//     const mergeLimits = {
+//       Free: 1,
+//       Basic: 10,
+//       Standard: 20,
+//       Premium: Infinity,
+//     };
+
+//     if (plan && !mergeLimits[plan]) {
+//       return res.status(400).json({ message: "Invalid subscription plan" });
+//     }
+
+//     // ✅ Update plan only if valid
+//     if (plan) {
+//       member1.subscriptionTier = plan;
+//     }
+
+//     const tier = member1.subscriptionTier || "Free";
+//     const limit = mergeLimits[tier];
+
+//     // ✅ Monthly reset
+//     const now = new Date();
+//     const lastReset = member1.lastMergeReset || new Date(0);
+
+//     if (
+//       now.getMonth() !== lastReset.getMonth() ||
+//       now.getFullYear() !== lastReset.getFullYear()
+//     ) {
+//       member1.mergeCountThisCycle = 0;
+//       member1.lastMergeReset = now;
+//     }
+
+//     // ✅ Limit check (ONCE)
+//     if (limit !== Infinity && member1.mergeCountThisCycle >= limit) {
+//       return res.status(403).json({
+//         message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
+//       });
+//     }
+
+//     // ✅ Increment ONCE
+//     member1.mergeCountThisCycle += 1;
+
+//     // ✅ Payment state
+//     member1.hasPaid = tier !== "Free";
+
+//     await member1.save();
+
+//     const newMerge = await Merge.create({
+//       member1: member1._id,
+//       member2: member2._id,
+//       member1Email: member1.email,
+//       compatibilityScore: 100,
+//     });
+
+//     return res.status(200).json({
+//       message: "Members matched successfully",
+//       match: newMerge,
+//       subscriptionTier: member1.subscriptionTier,
+//       hasPaid: member1.hasPaid,
+//     });
+//   } catch (err) {
+//     console.error("❌ Error merging members:", err);
+//     return res.status(500).json({
+//       message: "Error merging members",
+//       error: err.message,
+//     });
+//   }
+// };
 exports.mergeMembers = async (req, res) => {
-  const { memberId1, memberId2, plan } = req.body;
+  const { memberId1, memberId2 } = req.body;
 
-  if (!memberId1 || !memberId2) {
-    return res.status(400).json({ message: "Member IDs are required" });
+  const member1 = await memberModule.findById(memberId1);
+  const member2 = await memberModule.findById(memberId2);
+
+  const mergeLimits = {
+    Free: 1,
+    Basic: 10,
+    Standard: 30,
+    Premium: Infinity,
+  };
+
+  const tier = member1.subscriptionTier || "Free";
+  const limit = mergeLimits[tier];
+
+  // Monthly reset
+  const now = new Date();
+  const lastReset = member1.lastMergeReset || new Date(0);
+
+  if (
+    now.getMonth() !== lastReset.getMonth() ||
+    now.getFullYear() !== lastReset.getFullYear()
+  ) {
+    member1.mergeCountThisCycle = 0;
+    member1.lastMergeReset = now;
   }
 
-  if (memberId1 === memberId2) {
-    return res.status(400).json({ message: "Cannot merge the same member" });
-  }
-
-  try {
-    const member1 = await memberModule.findById(memberId1);
-    const member2 = await memberModule.findById(memberId2);
-
-    if (!member1 || !member2) {
-      return res.status(404).json({ message: "One or both members not found" });
-    }
-
-    if (member1.relationshipType !== member2.relationshipType) {
-      return res.status(400).json({ message: "Members are not compatible" });
-    }
-
-    // ✅ Already merged
-    const existingMerge = await Merge.findOne({
-      $or: [
-        { member1: member1._id, member2: member2._id },
-        { member1: member2._id, member2: member1._id },
-      ],
-    });
-
-    if (existingMerge) {
-      return res.status(409).json({
-        message: "These members are already merged",
-        match: existingMerge,
-      });
-    }
-
-    // ✅ Allowed plans
-    const mergeLimits = {
-      Free: 1,
-      Basic: 10,
-      Standard: 20,
-      Premium: Infinity,
-    };
-
-    if (plan && !mergeLimits[plan]) {
-      return res.status(400).json({ message: "Invalid subscription plan" });
-    }
-
-    // ✅ Update plan only if valid
-    if (plan) {
-      member1.subscriptionTier = plan;
-    }
-
-    const tier = member1.subscriptionTier || "Free";
-    const limit = mergeLimits[tier];
-
-    // ✅ Monthly reset
-    const now = new Date();
-    const lastReset = member1.lastMergeReset || new Date(0);
-
-    if (
-      now.getMonth() !== lastReset.getMonth() ||
-      now.getFullYear() !== lastReset.getFullYear()
-    ) {
-      member1.mergeCountThisCycle = 0;
-      member1.lastMergeReset = now;
-    }
-
-    // ✅ Limit check (ONCE)
-    if (limit !== Infinity && member1.mergeCountThisCycle >= limit) {
-      return res.status(403).json({
-        message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
-      });
-    }
-
-    // ✅ Increment ONCE
-    member1.mergeCountThisCycle += 1;
-
-    // ✅ Payment state
-    member1.hasPaid = tier !== "Free";
-
-    await member1.save();
-
-    const newMerge = await Merge.create({
-      member1: member1._id,
-      member2: member2._id,
-      member1Email: member1.email,
-      compatibilityScore: 100,
-    });
-
-    return res.status(200).json({
-      message: "Members matched successfully",
-      match: newMerge,
-      subscriptionTier: member1.subscriptionTier,
-      hasPaid: member1.hasPaid,
-    });
-  } catch (err) {
-    console.error("❌ Error merging members:", err);
-    return res.status(500).json({
-      message: "Error merging members",
-      error: err.message,
+  // Limit check (except Premium)
+  if (tier !== "Premium" && member1.mergeCountThisCycle >= limit) {
+    return res.status(403).json({
+      message: `You have reached the monthly limit of ${limit} merges for the ${tier} plan.`,
     });
   }
+
+  member1.mergeCountThisCycle += 1;
+  await member1.save();
+
+  const newMerge = await Merge.create({
+    member1: member1._id,
+    member2: member2._id,
+  });
+
+  return res.status(200).json({
+    match: newMerge,
+    subscriptionTier: tier,
+    hasPaid: tier !== "Free",
+  });
 };
 
 const mongoose = require("mongoose");
