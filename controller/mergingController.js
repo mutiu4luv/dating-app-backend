@@ -221,7 +221,7 @@ exports.mergeMembers = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    //  CHECK IF ALREADY MERGED (CRITICAL FIX)
+    //  CHECK IF ALREADY MERGED
     const existingMerge = await Merge.findOne({
       $or: [
         { member1: memberId1, member2: memberId2 },

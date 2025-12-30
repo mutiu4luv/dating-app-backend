@@ -76,19 +76,31 @@ exports.saveMessage = async (req, res) => {
   try {
     const { senderId, receiverId, content, room } = req.body;
 
+    if (!senderId || !receiverId || !content || !room) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const sender = await Member.findById(senderId);
-    if (!sender) return res.status(404).json({ error: "User not found" });
+    if (!sender) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    // 🔥 subscription check
-    // if (new Date(sender.subscriptionExpiresAt) < new Date()) {
-    //   return res.status(403).json({
-    //     error: "Your subscription has expired. Renew to continue chatting.",
-    //   });
-    // }
+    // ✅ UPDATE LAST SEEN ON REAL ACTIVITY
+    await Member.findByIdAndUpdate(senderId, {
+      lastSeen: new Date(),
+      isOnline: true, // keep them online while chatting
+    });
 
-    // Save the message
-    const message = new Message({ senderId, receiverId, content, room });
+    // ✅ Save the message
+    const message = new Message({
+      senderId,
+      receiverId,
+      content,
+      room,
+    });
+
     const saved = await message.save();
+
     return res.status(201).json(saved);
   } catch (err) {
     console.error("❌ Message saving failed:", err.message);
