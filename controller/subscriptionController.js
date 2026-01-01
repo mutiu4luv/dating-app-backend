@@ -128,35 +128,29 @@ exports.createSubscription = async (req, res) => {
 };
 exports.confirmSubscriptionPayment = async (req, res) => {
   try {
-    const { memberId, plan } = req.body;
+    const { memberId, plan, reference } = req.body;
 
-    // ✅ Validate input
-    if (!memberId || !plan) {
-      return res.status(400).json({
-        message: "Missing memberId or plan",
-      });
+    if (!memberId || !plan || !reference) {
+      return res.status(400).json({ message: "Missing payment data" });
     }
 
-    // ✅ Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(memberId)) {
-      return res.status(400).json({
-        message: "Invalid memberId",
-      });
+    // 1️⃣ VERIFY PAYSTACK
+    const paystackRes = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    if (!paystackRes.data.data.status === "success") {
+      return res.status(400).json({ message: "Payment not verified" });
     }
 
-    // ✅ Free plan cannot be confirmed
-    if (plan === "Free") {
-      return res.status(400).json({
-        message: "Free plan cannot be confirmed as paid",
-      });
-    }
-
+    // 2️⃣ ACTIVATE SUBSCRIPTION
     const user = await Member.findById(memberId);
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     const now = dayjs();
 
@@ -175,11 +169,7 @@ exports.confirmSubscriptionPayment = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ confirmSubscriptionPayment failed:", err);
-
-    return res.status(500).json({
-      message: "Failed to confirm subscription payment",
-      error: err.message,
-    });
+    res.status(500).json({ message: "Payment confirmation failed" });
   }
 };
 

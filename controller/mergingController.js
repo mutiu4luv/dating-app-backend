@@ -333,23 +333,21 @@ exports.getMergeStatuses = async (req, res) => {
     const now = new Date();
 
     // ✅ PAYMENT LOGIC (FIXED)
-    let hasActiveSubscription =
+    const hasActiveSubscription =
       member.subscriptionTier !== "Free" &&
-      member.subscriptionExpiresAt &&
-      member.subscriptionExpiresAt > now;
+      (!member.subscriptionExpiresAt || member.subscriptionExpiresAt > now);
 
     // Fix legacy paid users with missing expiry
     if (member.subscriptionTier !== "Free" && !member.subscriptionExpiresAt) {
       member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
       await member.save();
-
-      hasActiveSubscription = true;
     }
 
     return res.status(200).json({
       isMerged,
       hasPaid: hasActiveSubscription,
       expired: !hasActiveSubscription,
+      subscriptionTier: member.subscriptionTier,
       email: member.email,
     });
   } catch (err) {
