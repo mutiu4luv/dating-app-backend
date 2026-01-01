@@ -333,10 +333,21 @@ exports.getMergeStatuses = async (req, res) => {
     const now = new Date();
 
     // ✅ PAYMENT LOGIC (FIXED)
-    const hasActiveSubscription =
-      member.subscriptionTier !== "Free" &&
-      (!member.subscriptionExpiresAt || member.subscriptionExpiresAt > now);
+    let hasActiveSubscription = false;
 
+    if (member.subscriptionTier !== "Free") {
+      // If expiry exists and valid
+      if (member.subscriptionExpiresAt && member.subscriptionExpiresAt > now) {
+        hasActiveSubscription = true;
+      }
+
+      // ✅ Legacy paid users (no expiry but paid tier)
+      if (!member.subscriptionExpiresAt) {
+        member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+        await member.save();
+        hasActiveSubscription = true;
+      }
+    }
     // Fix legacy paid users with missing expiry
     if (member.subscriptionTier !== "Free" && !member.subscriptionExpiresAt) {
       member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
