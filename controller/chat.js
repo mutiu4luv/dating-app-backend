@@ -139,29 +139,50 @@ exports.getUserConversations = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
     const conversations = await Message.aggregate([
       {
         $match: {
-          $or: [
-            { senderId: new mongoose.Types.ObjectId(userId) },
-            { receiverId: new mongoose.Types.ObjectId(userId) },
-          ],
+          $or: [{ senderId: userObjectId }, { receiverId: userObjectId }],
         },
       },
+
+      // newest messages first
       { $sort: { createdAt: -1 } },
+
       {
         $group: {
           _id: {
             $cond: [
-              { $eq: ["$senderId", new mongoose.Types.ObjectId(userId)] },
+              { $eq: ["$senderId", userObjectId] },
               "$receiverId",
               "$senderId",
             ],
           },
+
           lastMessage: { $first: "$content" },
           timestamp: { $first: "$createdAt" },
+
+          // ✅ COUNT UNREAD MESSAGES
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$receiverId", userObjectId] },
+                    { $eq: ["$read", false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
         },
       },
+
+      // get user info
       {
         $lookup: {
           from: "members",
@@ -171,20 +192,24 @@ exports.getUserConversations = async (req, res) => {
         },
       },
       { $unwind: "$userInfo" },
+
       {
         $project: {
           matchId: "$_id",
           username: "$userInfo.username",
           lastMessage: 1,
           timestamp: 1,
+          unreadCount: 1,
+          unread: { $gt: ["$unreadCount", 0] },
         },
       },
+
       { $sort: { timestamp: -1 } },
     ]);
 
     res.status(200).json(conversations);
   } catch (err) {
-    console.error("Error fetching conversations:", err);
+    console.error("❌ Error fetching conversations:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
