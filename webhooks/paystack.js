@@ -1,5 +1,7 @@
 const Member = require("../models/memberModule");
 const queries = require("../queries/subscriptionQuery");
+const dayjs = require("dayjs");
+
 const { cancelSubscription, getActiveSubscriptions } = queries;
 
 const handleCreate = async (data) => {
@@ -28,7 +30,15 @@ const handleCreate = async (data) => {
 
   // Update subscription fields
   user.paystackSubscriptionCode = data.subscription_code;
-  user.subscriptionTier = data.plan?.name || "";
+  // user.subscriptionTier = data.plan?.name || "";
+  const mapPlanName = (paystackPlanName = "") => {
+    const name = paystackPlanName.toLowerCase();
+    if (name.includes("premium")) return "Premium";
+    if (name.includes("standard")) return "Standard";
+    if (name.includes("basic")) return "Basic";
+    return "Free";
+  };
+  user.subscriptionTier = mapPlanName(data.plan?.name || "");
   user.paystackAuthorizationCode = data.authorization?.authorization_code || "";
   user.paystackStatus = data.status || "";
   user.paystackCustomerCode = data.customer?.customer_code || "";
@@ -53,20 +63,47 @@ const handleCreate = async (data) => {
 
 const handleChargeSuccess = async (data) => {
   console.log("Webhook data payload (charge.success):", data);
+
   const user = await Member.findOne({ email: data.customer.email });
   if (!user) {
     console.warn(`User with email ${data.customer.email} not found`);
     return;
   }
-  if (data.amount) user.transactionAmount = data.amount / 100;
-  if (data.status) user.transactionStatus = data.status;
-  if (data.reference) user.transactionReference = data.reference;
-  if (data.authorization?.authorization_url)
-    user.authorizationUrl = data.authorization.authorization_url;
+
+  // ✅ TRANSACTION DETAILS
+  user.transactionAmount = data.amount / 100;
+  user.transactionStatus = data.status;
+  user.transactionReference = data.reference;
+
+  // ✅ ACTIVATE SUBSCRIPTION
+  if (user.subscriptionTier && user.subscriptionTier !== "Free") {
+    user.hasPaid = true;
+    user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+    user.mergeCountThisCycle = 0;
+    user.lastMergeReset = new Date();
+  }
 
   await user.save();
-  console.log(`Updated user ${user.email} with charge info.`);
+
+  console.log(`✅ Subscription activated for ${user.email}`);
 };
+
+// const handleChargeSuccess = async (data) => {
+//   console.log("Webhook data payload (charge.success):", data);
+//   const user = await Member.findOne({ email: data.customer.email });
+//   if (!user) {
+//     console.warn(`User with email ${data.customer.email} not found`);
+//     return;
+//   }
+//   if (data.amount) user.transactionAmount = data.amount / 100;
+//   if (data.status) user.transactionStatus = data.status;
+//   if (data.reference) user.transactionReference = data.reference;
+//   if (data.authorization?.authorization_url)
+//     user.authorizationUrl = data.authorization.authorization_url;
+
+//   await user.save();
+//   console.log(`Updated user ${user.email} with charge info.`);
+// };
 
 const handleNotRenew = async (data) => {
   const user = await Member.findOne({ email: data.customer.email });
@@ -75,6 +112,11 @@ const handleNotRenew = async (data) => {
   const activeSubs = await getActiveSubscriptions(user.paystackCustomerCode);
   if (activeSubs.length === 0) {
     user.subscriptionTier = "Free";
+    user.subscriptionExpiresAt = null;
+    user.hasPaid = false;
+    user.mergeCountThisCycle = 0;
+    user.lastMergeReset = new Date(0);
+
     user.paystackAuthorizationCode = "";
     user.paystackStatus = "";
     user.paystackEmailToken = "";
