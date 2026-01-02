@@ -13,20 +13,20 @@ const handleCreate = async (data) => {
   }
 
   // Optionally cancel old subscription
-  if (user.paystackAuthorizationCode) {
-    try {
-      await cancelSubscription(
-        user.paystackSubscriptionCode,
-        user.paystackEmailToken,
-        user.paystackAuthorizationCode
-      );
-    } catch (err) {
-      console.warn(
-        `Warning: Failed to cancel existing subscription for user ${user._id}:`,
-        err.message
-      );
-    }
-  }
+  // if (user.paystackAuthorizationCode) {
+  //   try {
+  //     await cancelSubscription(
+  //       user.paystackSubscriptionCode,
+  //       user.paystackEmailToken,
+  //       user.paystackAuthorizationCode
+  //     );
+  //   } catch (err) {
+  //     console.warn(
+  //       `Warning: Failed to cancel existing subscription for user ${user._id}:`,
+  //       err.message
+  //     );
+  //   }
+  // }
 
   // Update subscription fields
   user.paystackSubscriptionCode = data.subscription_code;
@@ -65,17 +65,19 @@ const handleChargeSuccess = async (data) => {
   console.log("Webhook data payload (charge.success):", data);
 
   const user = await Member.findOne({ email: data.customer.email });
-  if (!user) {
-    console.warn(`User with email ${data.customer.email} not found`);
-    return;
-  }
+  if (!user) return;
 
-  // ✅ TRANSACTION DETAILS
   user.transactionAmount = data.amount / 100;
   user.transactionStatus = data.status;
   user.transactionReference = data.reference;
+  if (!data.plan && !user.subscriptionTier) {
+    console.warn(
+      "Charge success without subscription plan, skipping activation"
+    );
+    return;
+  }
 
-  // ✅ ACTIVATE SUBSCRIPTION
+  // ✅ ONLY ACTIVATE IF SUBSCRIPTION PLAN EXISTS
   if (user.subscriptionTier && user.subscriptionTier !== "Free") {
     user.hasPaid = true;
     user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
@@ -84,7 +86,6 @@ const handleChargeSuccess = async (data) => {
   }
 
   await user.save();
-
   console.log(`✅ Subscription activated for ${user.email}`);
 };
 
