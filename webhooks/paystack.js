@@ -4,6 +4,8 @@ const dayjs = require("dayjs");
 
 const { cancelSubscription, getActiveSubscriptions } = queries;
 
+const crypto = require("crypto");
+
 const handleCreate = async (data) => {
   console.log("Webhook data payload (subscription.create):", data);
   const user = await Member.findOne({ email: data.customer.email });
@@ -70,23 +72,19 @@ const handleChargeSuccess = async (data) => {
   user.transactionAmount = data.amount / 100;
   user.transactionStatus = data.status;
   user.transactionReference = data.reference;
-  if (!data.plan && !user.subscriptionTier) {
-    console.warn(
-      "Charge success without subscription plan, skipping activation"
-    );
-    return;
-  }
 
-  // ✅ ONLY ACTIVATE IF SUBSCRIPTION PLAN EXISTS
+  // ✅ ACTIVATE PAYMENT REGARDLESS OF EVENT ORDER
+  user.hasPaid = true;
+
+  // Set expiry ONLY if tier is not Free
   if (user.subscriptionTier && user.subscriptionTier !== "Free") {
-    user.hasPaid = true;
     user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
     user.mergeCountThisCycle = 0;
     user.lastMergeReset = new Date();
   }
 
   await user.save();
-  console.log(`✅ Subscription activated for ${user.email}`);
+  console.log(`✅ Payment confirmed for ${user.email}`);
 };
 
 // const handleChargeSuccess = async (data) => {
@@ -132,8 +130,20 @@ const handleDisable = (data) => {
 
 const paystackWebhookHandler = async (req, res) => {
   try {
+    // 🔐 VERIFY PAYSTACK SIGNATURE (MUST BE FIRST)
+    const signature = req.headers["x-paystack-signature"];
+    const hash = crypto
+      .createHmac("sha512", process.env.PAYSTACK_SECRET)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+
+    if (hash !== signature) {
+      console.warn("❌ Invalid Paystack signature");
+      return res.status(401).send("Invalid signature");
+    }
+
     const { event, data } = req.body;
-    console.log("Received Paystack webhook:", event);
+    console.log("✅ Verified Paystack webhook:", event);
 
     if (!event || !data) {
       return res.status(400).json({ message: "Invalid webhook payload" });
@@ -143,15 +153,19 @@ const paystackWebhookHandler = async (req, res) => {
       case "subscription.create":
         await handleCreate(data);
         break;
+
       case "subscription.not_renew":
         await handleNotRenew(data);
         break;
+
       case "subscription.disable":
         handleDisable(data);
         break;
+
       case "charge.success":
         await handleChargeSuccess(data);
         break;
+
       default:
         console.log("Unhandled event type:", event);
     }
