@@ -135,7 +135,11 @@ app.use(
     // if you're using cookies or authorization headers
   })
 );
-
+app.post(
+  "/api/webhook/paystack",
+  express.raw({ type: "application/json" }),
+  paystackWebhookHandler
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
@@ -144,7 +148,7 @@ app.use("/uploads", express.static("uploads"));
 app.use("/api/user", memberRouter);
 app.use("/api/merge", mergeRouter);
 app.use("/api/subscription", subscriptionRouter);
-app.post("/api/webhook/paystack", paystackWebhookHandler);
+// app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/chat", chatRouter);
 
 app.get("/", (req, res) => {
