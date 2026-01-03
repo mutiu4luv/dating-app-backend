@@ -229,14 +229,36 @@ exports.getUnreadMessageCount = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+// exports.markMessagesAsRead = async (req, res) => {
+//   const { userId } = req.params;
+
+//   try {
+//     await Message.updateMany(
+//       { receiverId: userId, read: false },
+//       { $set: { read: true } }
+//     );
+//     res.status(200).json({ message: "Messages marked as read" });
+//   } catch (err) {
+//     console.error("Error marking messages as read:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 exports.markMessagesAsRead = async (req, res) => {
   const { userId } = req.params;
+  const { otherUserId } = req.body;
 
   try {
+    const room = [userId, otherUserId].sort().join("_");
+
     await Message.updateMany(
-      { receiverId: userId, read: false },
+      {
+        room,
+        receiverId: userId,
+        read: false,
+      },
       { $set: { read: true } }
     );
+
     res.status(200).json({ message: "Messages marked as read" });
   } catch (err) {
     console.error("Error marking messages as read:", err);
