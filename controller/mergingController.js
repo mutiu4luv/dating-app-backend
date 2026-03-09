@@ -294,6 +294,81 @@ exports.mergeMembers = async (req, res) => {
 
 const mongoose = require("mongoose");
 
+// exports.getMergeStatuses = async (req, res) => {
+//   const { member1, member2 } = req.query;
+
+//   if (!member1) {
+//     return res.status(400).json({ message: "member1 is required." });
+//   }
+
+//   try {
+//     // ✅ Validate ObjectIds
+//     if (!mongoose.Types.ObjectId.isValid(member1)) {
+//       return res.status(400).json({ message: "Invalid member1 ID." });
+//     }
+
+//     const m1 = new mongoose.Types.ObjectId(member1);
+
+//     // member2 can be "upgrade"
+//     let isMerged = false;
+
+//     if (member2 && mongoose.Types.ObjectId.isValid(member2)) {
+//       const m2 = new mongoose.Types.ObjectId(member2);
+
+//       const existingMerge = await Merge.findOne({
+//         $or: [
+//           { member1: m1, member2: m2 },
+//           { member1: m2, member2: m1 },
+//         ],
+//       });
+
+//       isMerged = Boolean(existingMerge);
+//     }
+
+//     const member = await memberModule.findById(m1);
+//     if (!member) {
+//       return res.status(404).json({ message: "Member not found." });
+//     }
+
+//     const now = new Date();
+
+//     // ✅ PAYMENT LOGIC (FIXED)
+//     let hasActiveSubscription = false;
+
+//     if (member.subscriptionTier !== "Free") {
+//       // If expiry exists and valid
+//       if (member.subscriptionExpiresAt && member.subscriptionExpiresAt > now) {
+//         hasActiveSubscription = true;
+//       }
+
+//       // ✅ Legacy paid users (no expiry but paid tier)
+//       if (!member.subscriptionExpiresAt) {
+//         member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+//         await member.save();
+//         hasActiveSubscription = true;
+//       }
+//     }
+//     // Fix legacy paid users with missing expiry
+//     if (member.subscriptionTier !== "Free" && !member.subscriptionExpiresAt) {
+//       member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
+//       await member.save();
+//     }
+
+//     return res.status(200).json({
+//       isMerged,
+//       hasPaid: hasActiveSubscription,
+//       expired: !hasActiveSubscription,
+//       subscriptionTier: member.subscriptionTier,
+//       email: member.email,
+//     });
+//   } catch (err) {
+//     console.error("Status check failed:", err);
+//     return res.status(500).json({ message: "Internal server error." });
+//   }
+// };
+
+// if a user has a paid tier but no expiry, we assume they are active and set an expiry for them. This ensures legacy users are not unfairly blocked.
+
 exports.getMergeStatuses = async (req, res) => {
   const { member1, member2 } = req.query;
 
@@ -302,14 +377,13 @@ exports.getMergeStatuses = async (req, res) => {
   }
 
   try {
-    // ✅ Validate ObjectIds
+    // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(member1)) {
       return res.status(400).json({ message: "Invalid member1 ID." });
     }
 
     const m1 = new mongoose.Types.ObjectId(member1);
 
-    // member2 can be "upgrade"
     let isMerged = false;
 
     if (member2 && mongoose.Types.ObjectId.isValid(member2)) {
@@ -326,38 +400,18 @@ exports.getMergeStatuses = async (req, res) => {
     }
 
     const member = await memberModule.findById(m1);
+
     if (!member) {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    const now = new Date();
-
-    // ✅ PAYMENT LOGIC (FIXED)
-    let hasActiveSubscription = false;
-
-    if (member.subscriptionTier !== "Free") {
-      // If expiry exists and valid
-      if (member.subscriptionExpiresAt && member.subscriptionExpiresAt > now) {
-        hasActiveSubscription = true;
-      }
-
-      // ✅ Legacy paid users (no expiry but paid tier)
-      if (!member.subscriptionExpiresAt) {
-        member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
-        await member.save();
-        hasActiveSubscription = true;
-      }
-    }
-    // Fix legacy paid users with missing expiry
-    if (member.subscriptionTier !== "Free" && !member.subscriptionExpiresAt) {
-      member.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
-      await member.save();
-    }
+    // ✅ NEW PAYMENT LOGIC
+    const hasActiveSubscription =
+      member.subscriptionTier && member.subscriptionTier !== "Free";
 
     return res.status(200).json({
       isMerged,
       hasPaid: hasActiveSubscription,
-      expired: !hasActiveSubscription,
       subscriptionTier: member.subscriptionTier,
       email: member.email,
     });
