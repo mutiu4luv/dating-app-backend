@@ -370,9 +370,15 @@ exports.initiateSubscription = async (req, res) => {
 
 exports.getAllSubscribers = async (req, res) => {
   try {
-    const subscribers = await Member.find().select(
-      "email subscriptionTier subscriptionExpiresAt createdAt"
-    );
+    const now = new Date();
+    const subscribers = await Member.find({
+      subscriptionTier: { $in: ["Basic", "Standard", "Premium"] },
+      subscriptionExpiresAt: { $gt: now },
+    })
+      .select(
+        "photo name username email phoneNumber age gender location occupation relationshipType subscriptionTier subscriptionExpiresAt hasPaid isOnline lastSeen createdAt"
+      )
+      .sort({ subscriptionExpiresAt: 1, createdAt: -1 });
 
     return res.status(200).json({
       hasError: false,
