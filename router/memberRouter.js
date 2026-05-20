@@ -16,6 +16,7 @@ const {
   forgotPassword,
   resetPassword,
   sendOtp,
+  getChatDirectoryMembers,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -27,6 +28,7 @@ router.post("/register", upload.single("photo"), register);
 
 router.post("/login", login);
 router.get("/profile", protect, getProfile);
+router.get("/chat-directory", protect, getChatDirectoryMembers);
 router.get("/", protect, getAllMembers);
 router.get("/:id", protect, getMemberById);
 router.delete("/:id", protect, deleteMember);

@@ -229,6 +229,23 @@ exports.getAllMembers = async (req, res) => {
   }
 };
 
+exports.getChatDirectoryMembers = async (req, res) => {
+  try {
+    const currentUserId = req.member?._id;
+    const members = await Member.find({ _id: { $ne: currentUserId } })
+      .select(
+        "photo name username age gender location occupation relationshipType description isOnline lastSeen"
+      )
+      .sort({ isOnline: -1, lastSeen: -1, createdAt: -1 });
+
+    res.status(200).json({ members });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to load members", error: error.message });
+  }
+};
+
 exports.getMemberById = async (req, res) => {
   try {
     const member = await Member.findById(req.params.id);
