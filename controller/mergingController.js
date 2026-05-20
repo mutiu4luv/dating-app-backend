@@ -221,6 +221,14 @@ exports.mergeMembers = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
+    const now = new Date();
+    const hasActivePaidSubscription = Boolean(
+      member1.subscriptionTier &&
+        member1.subscriptionTier !== "Free" &&
+        member1.subscriptionExpiresAt &&
+        member1.subscriptionExpiresAt > now
+    );
+
     //  CHECK IF ALREADY MERGED
     const existingMerge = await Merge.findOne({
       $or: [
@@ -234,7 +242,8 @@ exports.mergeMembers = async (req, res) => {
         match: existingMerge,
         alreadyMerged: true,
         subscriptionTier: member1.subscriptionTier,
-        hasPaid: member1.subscriptionTier !== "Free",
+        hasPaid: hasActivePaidSubscription,
+        subscriptionActive: hasActivePaidSubscription,
       });
     }
 
@@ -250,7 +259,6 @@ exports.mergeMembers = async (req, res) => {
     const limit = mergeLimits[tier];
 
     //  MONTHLY RESET
-    const now = new Date();
     const lastReset = member1.lastMergeReset || new Date(0);
 
     if (
@@ -281,7 +289,8 @@ exports.mergeMembers = async (req, res) => {
     return res.status(200).json({
       match: newMerge,
       subscriptionTier: tier,
-      hasPaid: tier !== "Free",
+      hasPaid: hasActivePaidSubscription,
+      subscriptionActive: hasActivePaidSubscription,
     });
   } catch (err) {
     console.error("❌ mergeMembers failed:", err);
@@ -405,14 +414,24 @@ exports.getMergeStatuses = async (req, res) => {
       return res.status(404).json({ message: "Member not found." });
     }
 
-    // ✅ NEW PAYMENT LOGIC
-    const hasActiveSubscription =
-      member.subscriptionTier && member.subscriptionTier !== "Free";
+    const now = new Date();
+    const hasActiveSubscription = Boolean(
+      member.subscriptionTier &&
+        member.subscriptionTier !== "Free" &&
+        member.subscriptionExpiresAt &&
+        member.subscriptionExpiresAt > now
+    );
 
     return res.status(200).json({
       isMerged,
       hasPaid: hasActiveSubscription,
+      subscriptionActive: hasActiveSubscription,
+      expired:
+        member.subscriptionTier &&
+        member.subscriptionTier !== "Free" &&
+        (!member.subscriptionExpiresAt || member.subscriptionExpiresAt <= now),
       subscriptionTier: member.subscriptionTier,
+      subscriptionExpiresAt: member.subscriptionExpiresAt,
       email: member.email,
     });
   } catch (err) {

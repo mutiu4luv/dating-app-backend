@@ -2,6 +2,34 @@ const Message = require("../models/chatModel.js");
 const Member = require("../models/memberModule.js");
 const mongoose = require("mongoose");
 
+const hasActivePaidSubscription = (member) =>
+  Boolean(
+    member &&
+      member.subscriptionTier &&
+      member.subscriptionTier !== "Free" &&
+      member.subscriptionExpiresAt &&
+      new Date(member.subscriptionExpiresAt) > new Date()
+  );
+
+const requireActiveChatSubscription = async (memberId, res) => {
+  const member = await Member.findById(memberId);
+
+  if (!member) {
+    res.status(404).json({ error: "User not found" });
+    return null;
+  }
+
+  if (!hasActivePaidSubscription(member)) {
+    res.status(403).json({
+      error: "Your subscription has expired. Renew to continue chatting.",
+      expired: true,
+    });
+    return null;
+  }
+
+  return member;
+};
+
 // exports.getChatMessages = async (req, res) => {
 //   const { member1, member2 } = req.query;
 
@@ -50,18 +78,12 @@ exports.getChatMessages = async (req, res) => {
   const room = [member1, member2].sort().join("_");
 
   try {
-    // 🔥 CHECK SUBSCRIPTION
-    const sender = await Member.findById(member1);
-    if (!sender) return res.status(404).json({ error: "User not found" });
+    if (req.member._id.toString() !== member1) {
+      return res.status(403).json({ error: "You cannot access this chat." });
+    }
 
-    const now = new Date(sender.subscriptionExpiresAt);
-
-    // if (now < new Date()) {
-    //   return res.status(403).json({
-    //     error: "Your subscription has expired. Renew to continue chatting.",
-    //     expired: true,
-    //   });
-    // }
+    const sender = await requireActiveChatSubscription(member1, res);
+    if (!sender) return;
 
     // 👌 If subscription valid → fetch messages
     const messages = await Message.find({ room }).sort({ createdAt: 1 });
@@ -74,16 +96,20 @@ exports.getChatMessages = async (req, res) => {
 
 exports.saveMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, content, room } = req.body;
+    const { senderId, receiverId, content = "", room } = req.body;
+    const imageUrl = req.file?.path || "";
+    const cleanContent = content.trim();
 
-    if (!senderId || !receiverId || !content || !room) {
+    if (!senderId || !receiverId || !room || (!cleanContent && !imageUrl)) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const sender = await Member.findById(senderId);
-    if (!sender) {
-      return res.status(404).json({ error: "User not found" });
+    if (req.member._id.toString() !== senderId) {
+      return res.status(403).json({ error: "You cannot send as another user." });
     }
+
+    const sender = await requireActiveChatSubscription(senderId, res);
+    if (!sender) return;
 
     // ✅ UPDATE LAST SEEN ON REAL ACTIVITY
     await Member.findByIdAndUpdate(senderId, {
@@ -95,7 +121,8 @@ exports.saveMessage = async (req, res) => {
     const message = new Message({
       senderId,
       receiverId,
-      content,
+      content: cleanContent,
+      imageUrl,
       room,
     });
 
@@ -139,6 +166,12 @@ exports.getUserConversations = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    if (req.member._id.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "You cannot access another user's conversations." });
+    }
+
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
     const conversations = await Message.aggregate([
@@ -161,7 +194,11 @@ exports.getUserConversations = async (req, res) => {
             ],
           },
 
-          lastMessage: { $first: "$content" },
+          lastMessage: {
+            $first: {
+              $cond: [{ $ne: ["$content", ""] }, "$content", "Photo"],
+            },
+          },
           timestamp: { $first: "$createdAt" },
 
           // ✅ COUNT UNREAD MESSAGES
@@ -218,6 +255,12 @@ exports.getUnreadMessageCount = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    if (req.member._id.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "You cannot access another user's unread count." });
+    }
+
     const count = await Message.countDocuments({
       receiverId: userId,
       read: false,
@@ -248,6 +291,16 @@ exports.markMessagesAsRead = async (req, res) => {
   const { otherUserId } = req.body;
 
   try {
+    if (req.member._id.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "You cannot update another user's messages." });
+    }
+
+    if (!otherUserId) {
+      return res.status(400).json({ message: "otherUserId is required" });
+    }
+
     const room = [userId, otherUserId].sort().join("_");
 
     await Message.updateMany(

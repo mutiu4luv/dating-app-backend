@@ -12,7 +12,8 @@ const messageSchema = new mongoose.Schema(
       ref: "Member",
       required: true,
     },
-    content: { type: String, required: true },
+    content: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
     room: { type: String, required: true },
     read: {
       type: Boolean,

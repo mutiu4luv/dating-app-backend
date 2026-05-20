@@ -10,7 +10,7 @@ const mergeRouter = require("./router/merginRouter.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
 const chatRouter = require("./router/chatRoute.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
-const memberModule = require("./models/memberModule.js");
+const Member = require("./models/memberModule.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -98,8 +98,11 @@ io.on("connection", (socket) => {
 
   // ✅ Broadcast message to everyone in room (except sender)
   socket.on("send_message", (data) => {
-    const { room } = data;
+    const { room, receiverId } = data;
     socket.to(room).emit("receive_message", data);
+    if (receiverId) {
+      socket.to(receiverId.toString()).emit("receive_message", data);
+    }
   });
 
   socket.on("disconnect", async () => {

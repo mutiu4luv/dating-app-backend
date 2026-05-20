@@ -144,8 +144,23 @@ exports.confirmSubscriptionPayment = async (req, res) => {
       }
     );
 
-    if (!paystackRes.data.data.status === "success") {
+    const transaction = paystackRes.data?.data;
+
+    if (transaction?.status !== "success") {
       return res.status(400).json({ message: "Payment not verified" });
+    }
+
+    if (
+      transaction.metadata?.member1 &&
+      transaction.metadata.member1 !== memberId
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Payment does not belong to this user" });
+    }
+
+    if (transaction.metadata?.plan && transaction.metadata.plan !== plan) {
+      return res.status(400).json({ message: "Payment plan mismatch" });
     }
 
     // 2️⃣ ACTIVATE SUBSCRIPTION
@@ -153,9 +168,14 @@ exports.confirmSubscriptionPayment = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const now = dayjs();
+    const currentExpiry =
+      user.subscriptionExpiresAt &&
+      dayjs(user.subscriptionExpiresAt).isAfter(now)
+        ? dayjs(user.subscriptionExpiresAt)
+        : now;
 
     user.subscriptionTier = plan;
-    user.subscriptionExpiresAt = now.add(30, "day").toDate();
+    user.subscriptionExpiresAt = currentExpiry.add(30, "day").toDate();
     user.mergeCountThisCycle = 0;
     user.lastMergeReset = new Date();
     user.hasPaid = true;

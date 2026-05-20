@@ -8,9 +8,10 @@ const {
   markMessagesAsRead,
 } = require("../controller/chat");
 const protect = require("../middleware/auth");
+const upload = require("../middleware/multer");
 
-router.get("/", getChatMessages);
-router.post("/save", saveMessage);
+router.get("/", protect, getChatMessages);
+router.post("/save", protect, upload.single("image"), saveMessage);
 router.get("/conversations/:userId", protect, getUserConversations);
 router.get("/unread/count/:userId", protect, getUnreadMessageCount);
 router.put("/read/:userId", protect, markMessagesAsRead);
