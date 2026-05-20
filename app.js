@@ -83,11 +83,21 @@ io.on("connection", (socket) => {
 
   socket.on("register_user", async (userId) => {
     socket.userId = userId;
+    socket.join(userId.toString());
 
     if (!userSockets.has(userId)) userSockets.set(userId, new Set());
     userSockets.get(userId).add(socket.id);
 
-    await Member.findByIdAndUpdate(userId, { isOnline: true });
+    await Member.findByIdAndUpdate(userId, {
+      isOnline: true,
+      lastSeen: new Date(),
+    });
+
+    io.emit("presence_update", {
+      userId,
+      isOnline: true,
+      lastSeen: new Date(),
+    });
   });
 
   // ✅ Handle room join
@@ -99,10 +109,10 @@ io.on("connection", (socket) => {
   // ✅ Broadcast message to everyone in room (except sender)
   socket.on("send_message", (data) => {
     const { room, receiverId } = data;
-    socket.to(room).emit("receive_message", data);
-    if (receiverId) {
-      socket.to(receiverId.toString()).emit("receive_message", data);
-    }
+    const target = receiverId
+      ? socket.to(room).to(receiverId.toString())
+      : socket.to(room);
+    target.emit("receive_message", data);
   });
 
   socket.on("disconnect", async () => {
@@ -117,6 +127,12 @@ io.on("connection", (socket) => {
       if (sockets.size === 0) {
         userSockets.delete(userId);
         await Member.findByIdAndUpdate(userId, {
+          isOnline: false,
+          lastSeen: new Date(),
+        });
+
+        io.emit("presence_update", {
+          userId,
           isOnline: false,
           lastSeen: new Date(),
         });

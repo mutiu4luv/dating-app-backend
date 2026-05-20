@@ -2,17 +2,41 @@ const Message = require("../models/chatModel.js");
 const Member = require("../models/memberModule.js");
 const mongoose = require("mongoose");
 
-const hasActivePaidSubscription = (member) =>
-  Boolean(
-    member &&
-      (member.isAdmin ||
-        (member.subscriptionTier &&
-          member.subscriptionTier !== "Free" &&
-          member.subscriptionExpiresAt &&
-          new Date(member.subscriptionExpiresAt) > new Date()))
-  );
+const CHAT_LIMITS = {
+  Free: 10,
+  Basic: 20,
+  Standard: 30,
+  Premium: Infinity,
+};
 
-const requireActiveChatSubscription = async (memberId, res) => {
+const getEffectiveChatTier = (member) => {
+  if (member?.isAdmin) return "Premium";
+
+  const hasActivePaidSubscription =
+    member?.subscriptionTier &&
+    member.subscriptionTier !== "Free" &&
+    member.subscriptionExpiresAt &&
+    new Date(member.subscriptionExpiresAt) > new Date();
+
+  return hasActivePaidSubscription ? member.subscriptionTier : "Free";
+};
+
+const resetChatCycleIfExpired = (member) => {
+  const now = new Date();
+  const cycleStart = member.chatCycleStartedAt || member.createdAt || now;
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+  if (now.getTime() - new Date(cycleStart).getTime() >= thirtyDays) {
+    member.chatCycleStartedAt = now;
+    member.chatContactsThisCycle = [];
+  }
+};
+
+const requireChatAccess = async (
+  memberId,
+  res,
+  { receiverId, consumeSlot = false } = {}
+) => {
   const member = await Member.findById(memberId);
 
   if (!member) {
@@ -20,12 +44,38 @@ const requireActiveChatSubscription = async (memberId, res) => {
     return null;
   }
 
-  if (!hasActivePaidSubscription(member)) {
+  resetChatCycleIfExpired(member);
+
+  const tier = getEffectiveChatTier(member);
+  const limit = CHAT_LIMITS[tier] ?? CHAT_LIMITS.Free;
+  const contactIds = (member.chatContactsThisCycle || []).map((id) =>
+    id.toString()
+  );
+  const receiverKey = receiverId?.toString();
+  const hasExistingContact = receiverKey && contactIds.includes(receiverKey);
+
+  if (
+    consumeSlot &&
+    receiverKey &&
+    !hasExistingContact &&
+    limit !== Infinity &&
+    contactIds.length >= limit
+  ) {
     res.status(403).json({
-      error: "Your subscription has expired. Renew to continue chatting.",
-      expired: true,
+      error: `${tier} plan can chat with ${limit} people in one month. Upgrade to chat with more people.`,
+      chatLimitReached: true,
+      tier,
+      limit,
     });
     return null;
+  }
+
+  if (consumeSlot && receiverKey && !hasExistingContact) {
+    member.chatContactsThisCycle.push(receiverId);
+  }
+
+  if (member.isModified("chatCycleStartedAt") || member.isModified("chatContactsThisCycle")) {
+    await member.save();
   }
 
   return member;
@@ -83,7 +133,10 @@ exports.getChatMessages = async (req, res) => {
       return res.status(403).json({ error: "You cannot access this chat." });
     }
 
-    const sender = await requireActiveChatSubscription(member1, res);
+    const sender = await requireChatAccess(member1, res, {
+      receiverId: member2,
+      consumeSlot: false,
+    });
     if (!sender) return;
 
     // 👌 If subscription valid → fetch messages
@@ -109,7 +162,10 @@ exports.saveMessage = async (req, res) => {
       return res.status(403).json({ error: "You cannot send as another user." });
     }
 
-    const sender = await requireActiveChatSubscription(senderId, res);
+    const sender = await requireChatAccess(senderId, res, {
+      receiverId,
+      consumeSlot: true,
+    });
     if (!sender) return;
 
     // ✅ UPDATE LAST SEEN ON REAL ACTIVITY
@@ -235,6 +291,9 @@ exports.getUserConversations = async (req, res) => {
         $project: {
           matchId: "$_id",
           username: "$userInfo.username",
+          photo: "$userInfo.photo",
+          isOnline: "$userInfo.isOnline",
+          lastSeen: "$userInfo.lastSeen",
           lastMessage: 1,
           timestamp: 1,
           unreadCount: 1,

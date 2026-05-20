@@ -457,7 +457,9 @@ exports.getSingleMember = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const member = await Member.findById(id).select("username email _id");
+    const member = await Member.findById(id).select(
+      "username email _id photo isOnline lastSeen"
+    );
     if (!member) {
       return res.status(404).json({ error: "Member not found" });
     }

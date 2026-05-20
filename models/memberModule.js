@@ -83,6 +83,16 @@ const memberSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    chatCycleStartedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    chatContactsThisCycle: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Member",
+      },
+    ],
 
     hasPaid: {
       type: Boolean,
