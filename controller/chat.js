@@ -5,10 +5,11 @@ const mongoose = require("mongoose");
 const hasActivePaidSubscription = (member) =>
   Boolean(
     member &&
-      member.subscriptionTier &&
-      member.subscriptionTier !== "Free" &&
-      member.subscriptionExpiresAt &&
-      new Date(member.subscriptionExpiresAt) > new Date()
+      (member.isAdmin ||
+        (member.subscriptionTier &&
+          member.subscriptionTier !== "Free" &&
+          member.subscriptionExpiresAt &&
+          new Date(member.subscriptionExpiresAt) > new Date()))
   );
 
 const requireActiveChatSubscription = async (memberId, res) => {
