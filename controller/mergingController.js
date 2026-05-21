@@ -469,6 +469,12 @@ exports.getMergeStatuses = async (req, res) => {
       effectiveTier === "Free" &&
       member2 &&
       (hasExistingChatContact || chatContactIds.length < 10);
+    const chatLimit = effectiveTier === "Free" ? 10 : "plan";
+    const freeTierChatLimitReached =
+      effectiveTier === "Free" &&
+      member2 &&
+      !hasExistingChatContact &&
+      chatContactIds.length >= 10;
     const canChat = Boolean(
       member.isAdmin || hasActiveSubscription || freeChatAvailable
     );
@@ -485,6 +491,9 @@ exports.getMergeStatuses = async (req, res) => {
       subscriptionTier: effectiveTier,
       accountSubscriptionTier: member.subscriptionTier,
       subscriptionExpiresAt: member.subscriptionExpiresAt,
+      chatLimit,
+      chatContactsUsed: chatContactIds.length,
+      freeTierChatLimitReached,
       mergeLimit:
         mergeLimits[effectiveTier] === Infinity
           ? "unlimited"
