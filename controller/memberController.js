@@ -435,7 +435,6 @@ exports.getSuggestedMembers = async (req, res) => {
 
     const suggestions = candidates
       .map((candidate) => buildSuggestedMatch(currentUser, candidate))
-      .filter((candidate) => candidate.compatibilityScore > 0)
       .sort((a, b) => {
         if (b.compatibilityScore !== a.compatibilityScore) {
           return b.compatibilityScore - a.compatibilityScore;
