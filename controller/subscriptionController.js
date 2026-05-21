@@ -372,18 +372,43 @@ exports.getAllSubscribers = async (req, res) => {
   try {
     const now = new Date();
     const subscribers = await Member.find({
-      subscriptionTier: { $in: ["Basic", "Standard", "Premium"] },
-      subscriptionExpiresAt: { $gt: now },
+      $or: [
+        { hasPaid: true },
+        { subscriptionTier: { $in: ["Basic", "Standard", "Premium"] } },
+        { transactionReference: { $exists: true, $ne: "" } },
+      ],
     })
       .select(
-        "photo name username email phoneNumber age gender location occupation relationshipType subscriptionTier subscriptionExpiresAt hasPaid isOnline lastSeen createdAt"
+        "photo name username email phoneNumber age gender location occupation relationshipType subscriptionTier subscriptionExpiresAt hasPaid isOnline lastSeen transactionAmount transactionStatus transactionReference createdAt updatedAt"
       )
       .sort({ subscriptionExpiresAt: 1, createdAt: -1 });
 
+    const data = subscribers.map((subscriber) => {
+      const doc = subscriber.toObject();
+      const expiresAt = doc.subscriptionExpiresAt
+        ? new Date(doc.subscriptionExpiresAt)
+        : null;
+
+      return {
+        ...doc,
+        subscriptionActive:
+          doc.subscriptionTier &&
+          doc.subscriptionTier !== "Free" &&
+          expiresAt &&
+          expiresAt > now,
+        subscriptionStatus:
+          doc.subscriptionTier && doc.subscriptionTier !== "Free" && expiresAt
+            ? expiresAt > now
+              ? "Active"
+              : "Expired"
+            : "Paid before",
+      };
+    });
+
     return res.status(200).json({
       hasError: false,
-      count: subscribers.length,
-      data: subscribers,
+      count: data.length,
+      data,
     });
   } catch (err) {
     return res.status(500).json({
