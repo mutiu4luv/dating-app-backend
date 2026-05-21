@@ -12,7 +12,7 @@ dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
 
 const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
+  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "12h" });
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
@@ -464,6 +464,25 @@ exports.getSuggestedMembers = async (req, res) => {
   }
 };
 
+exports.getPublicMemberProfile = async (req, res) => {
+  try {
+    const member = await Member.findById(req.params.id).select(
+      publicSuggestionFields
+    );
+
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    res.status(200).json({ member });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to load member profile",
+      error: error.message,
+    });
+  }
+};
+
 exports.getMemberById = async (req, res) => {
   try {
     const member = await Member.findById(req.params.id);
@@ -490,6 +509,10 @@ exports.deleteMember = async (req, res) => {
 
 exports.updateMember = async (req, res) => {
   try {
+    if (String(req.member?._id) !== String(req.params.id) && !req.member?.isAdmin) {
+      return res.status(403).json({ message: "Not allowed to update this profile" });
+    }
+
     const allowedFields = [
       "name",
       "age",

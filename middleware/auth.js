@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 const Member = require("../models/memberModule.js");
 
+const IDLE_SESSION_LIMIT_MS = 12 * 60 * 60 * 1000;
+
 const protect = async (req, res, next) => {
   let token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "No token provided" });
@@ -12,6 +14,21 @@ const protect = async (req, res, next) => {
 
     if (!req.member) {
       return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const lastSeenTime = req.member.lastSeen
+      ? new Date(req.member.lastSeen).getTime()
+      : Date.now();
+    const hasBeenInactiveTooLong =
+      !req.member.isOnline &&
+      !Number.isNaN(lastSeenTime) &&
+      Date.now() - lastSeenTime > IDLE_SESSION_LIMIT_MS;
+
+    if (hasBeenInactiveTooLong) {
+      await Member.findByIdAndUpdate(req.member._id, { isOnline: false });
+      return res
+        .status(401)
+        .json({ message: "Session expired. Please log in again." });
     }
 
     await Member.findByIdAndUpdate(req.member._id, {
