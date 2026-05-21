@@ -14,6 +14,163 @@ dayjs.extend(localizedFormat);
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "59m" });
 
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const tokenizeProfileText = (value) => {
+  const ignoredWords = new Set([
+    "about",
+    "after",
+    "also",
+    "with",
+    "from",
+    "that",
+    "this",
+    "they",
+    "them",
+    "have",
+    "love",
+    "like",
+    "looking",
+    "person",
+    "people",
+  ]);
+
+  return [
+    ...new Set(
+      normalizeText(value)
+        .split(/[^a-z0-9]+/i)
+        .filter((word) => word.length > 3 && !ignoredWords.has(word))
+    ),
+  ];
+};
+
+const getAgeScore = (currentAge, otherAge) => {
+  if (!currentAge || !otherAge) return { score: 0, reason: null };
+
+  const ageGap = Math.abs(Number(currentAge) - Number(otherAge));
+  if (ageGap <= 3) return { score: 15, reason: "Very close age range" };
+  if (ageGap <= 7) return { score: 10, reason: "Close age range" };
+  if (ageGap <= 12) return { score: 5, reason: "Compatible age range" };
+  return { score: 0, reason: null };
+};
+
+const getLocationScore = (currentLocation, otherLocation) => {
+  const current = normalizeText(currentLocation);
+  const other = normalizeText(otherLocation);
+  if (!current || !other) return { score: 0, reason: null };
+  if (current === other) return { score: 15, reason: "Same location" };
+
+  const currentParts = new Set(current.split(/[\s,.-]+/).filter(Boolean));
+  const hasSharedArea = other
+    .split(/[\s,.-]+/)
+    .some((part) => currentParts.has(part));
+
+  return hasSharedArea
+    ? { score: 8, reason: "Nearby location" }
+    : { score: 0, reason: null };
+};
+
+const getActivityScore = (member) => {
+  if (member.isOnline) return { score: 10, reason: "Online now" };
+  if (!member.lastSeen) return { score: 0, reason: null };
+
+  const lastSeenTime = new Date(member.lastSeen).getTime();
+  if (Number.isNaN(lastSeenTime)) return { score: 0, reason: null };
+
+  const daysSinceActive = (Date.now() - lastSeenTime) / (1000 * 60 * 60 * 24);
+  if (daysSinceActive <= 7) return { score: 5, reason: "Recently active" };
+  return { score: 0, reason: null };
+};
+
+const hasActiveSubscription = (member) => {
+  if (!member) return false;
+  if (member.subscriptionTier === "Premium") return true;
+  if (member.subscriptionTier && member.subscriptionTier !== "Free") {
+    return (
+      !member.subscriptionExpiresAt ||
+      new Date(member.subscriptionExpiresAt).getTime() > Date.now()
+    );
+  }
+  return Boolean(member.hasPaid);
+};
+
+const buildSuggestedMatch = (currentUser, candidate) => {
+  let score = 0;
+  const reasons = [];
+
+  if (
+    normalizeText(currentUser.relationshipType) &&
+    normalizeText(currentUser.relationshipType) ===
+      normalizeText(candidate.relationshipType)
+  ) {
+    score += 35;
+    reasons.push("Same relationship goal");
+  }
+
+  const ageScore = getAgeScore(currentUser.age, candidate.age);
+  score += ageScore.score;
+  if (ageScore.reason) reasons.push(ageScore.reason);
+
+  const locationScore = getLocationScore(currentUser.location, candidate.location);
+  score += locationScore.score;
+  if (locationScore.reason) reasons.push(locationScore.reason);
+
+  if (
+    normalizeText(currentUser.occupation) &&
+    normalizeText(currentUser.occupation) === normalizeText(candidate.occupation)
+  ) {
+    score += 8;
+    reasons.push("Similar occupation");
+  }
+
+  const currentKeywords = new Set(
+    tokenizeProfileText(`${currentUser.description || ""} ${currentUser.interests || ""}`)
+  );
+  const candidateKeywords = tokenizeProfileText(
+    `${candidate.description || ""} ${candidate.interests || ""}`
+  );
+  const sharedKeywords = candidateKeywords.filter((word) =>
+    currentKeywords.has(word)
+  );
+  if (sharedKeywords.length) {
+    score += Math.min(sharedKeywords.length * 4, 15);
+    reasons.push("Similar profile interests");
+  }
+
+  const activityScore = getActivityScore(candidate);
+  score += activityScore.score;
+  if (activityScore.reason) reasons.push(activityScore.reason);
+
+  if (hasActiveSubscription(candidate)) {
+    score += 5;
+    reasons.push("Active subscription");
+  }
+
+  if (
+    normalizeText(currentUser.gender) &&
+    normalizeText(candidate.gender) &&
+    normalizeText(currentUser.gender) !== normalizeText(candidate.gender)
+  ) {
+    score += 7;
+    reasons.push("Preferred gender match");
+  }
+
+  return {
+    ...candidate.toObject(),
+    compatibilityScore: Math.min(score, 100),
+    compatibilityReasons: reasons.slice(0, 4),
+    matchVector: {
+      relationshipType: candidate.relationshipType,
+      age: candidate.age,
+      location: candidate.location,
+      occupation: candidate.occupation,
+      activityLevel: candidate.isOnline ? "online" : "recent-or-offline",
+      subscriptionStatus: candidate.subscriptionTier || "Free",
+      sharedKeywords: sharedKeywords.slice(0, 6),
+    },
+  };
+};
+
 exports.register = async (req, res) => {
   const {
     name,
@@ -249,6 +406,57 @@ exports.getChatDirectoryMembers = async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to load members", error: error.message });
+  }
+};
+
+exports.getSuggestedMembers = async (req, res) => {
+  try {
+    const requestedUserId = req.params.userId;
+    const currentUserId = String(req.member?._id || "");
+
+    if (currentUserId !== requestedUserId && !req.member?.isAdmin) {
+      return res.status(403).json({ message: "Not allowed to view suggestions" });
+    }
+
+    const currentUser = await Member.findById(requestedUserId).select(
+      "-password"
+    );
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const candidates = await Member.find({
+      _id: { $ne: currentUser._id },
+    }).select("-password");
+
+    const suggestions = candidates
+      .map((candidate) => buildSuggestedMatch(currentUser, candidate))
+      .filter((candidate) => candidate.compatibilityScore > 0)
+      .sort((a, b) => {
+        if (b.compatibilityScore !== a.compatibilityScore) {
+          return b.compatibilityScore - a.compatibilityScore;
+        }
+        if (Boolean(b.isOnline) !== Boolean(a.isOnline)) {
+          return b.isOnline ? 1 : -1;
+        }
+        return (
+          new Date(b.lastSeen || 0).getTime() -
+          new Date(a.lastSeen || 0).getTime()
+        );
+      })
+      .slice(0, 16);
+
+    res.status(200).json({
+      message: "Suggested matches fetched successfully.",
+      count: suggestions.length,
+      suggestions,
+    });
+  } catch (error) {
+    console.error("Error fetching suggested members:", error);
+    res.status(500).json({
+      message: "Failed to load suggested matches",
+      error: error.message,
+    });
   }
 };
 
