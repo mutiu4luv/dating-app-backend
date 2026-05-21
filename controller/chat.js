@@ -1,6 +1,5 @@
 const Message = require("../models/chatModel.js");
 const Member = require("../models/memberModule.js");
-const Merge = require("../models/model/mergesmodel.js");
 const mongoose = require("mongoose");
 
 const CHAT_LIMITS = {
@@ -46,25 +45,6 @@ const resetMergeCycleIfMonthChanged = (member) => {
   }
 };
 
-const getCycleStart = (member) =>
-  member.lastMergeReset || member.chatCycleStartedAt || member.createdAt || new Date(0);
-
-const hasMergeInCurrentCycle = async (memberId, receiverId, member) => {
-  if (!receiverId) return false;
-
-  const cycleStart = getCycleStart(member);
-
-  const merge = await Merge.findOne({
-    $or: [
-      { member1: memberId, member2: receiverId },
-      { member1: receiverId, member2: memberId },
-    ],
-    createdAt: { $gte: cycleStart },
-  });
-
-  return Boolean(merge);
-};
-
 const requireChatAccess = async (
   memberId,
   res,
@@ -87,25 +67,6 @@ const requireChatAccess = async (
   );
   const receiverKey = receiverId?.toString();
   const hasExistingContact = receiverKey && contactIds.includes(receiverKey);
-
-  if (tier === "Free" && receiverKey) {
-    const canChatFreeContact = await hasMergeInCurrentCycle(
-      memberId,
-      receiverId,
-      member
-    );
-
-    if (!canChatFreeContact) {
-      res.status(403).json({
-        error:
-          "Free users can chat only with the people they merged with this month. Upgrade to chat with more members.",
-        chatLimitReached: true,
-        tier,
-        limit,
-      });
-      return null;
-    }
-  }
 
   if (
     consumeSlot &&

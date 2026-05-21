@@ -249,19 +249,20 @@ exports.mergeMembers = async (req, res) => {
     });
 
     if (existingMerge) {
-      const freeMergeIsCurrent =
-        !hasActivePaidSubscription &&
-        existingMerge.createdAt >=
-          (member1.lastMergeReset ||
-            member1.chatCycleStartedAt ||
-            member1.createdAt ||
-            new Date(0));
+      const chatContactIds = (member1.chatContactsThisCycle || []).map((id) =>
+        id.toString()
+      );
+      const hasExistingChatContact = chatContactIds.includes(
+        memberId2.toString()
+      );
+      const freeChatAvailable =
+        hasExistingChatContact || chatContactIds.length < 10;
 
       return res.status(200).json({
         match: existingMerge,
         alreadyMerged: true,
         canChat: Boolean(
-          member1.isAdmin || hasActivePaidSubscription || freeMergeIsCurrent
+          member1.isAdmin || hasActivePaidSubscription || freeChatAvailable
         ),
         subscriptionTier: member1.subscriptionTier,
         hasPaid: hasActivePaidSubscription,
@@ -459,29 +460,17 @@ exports.getMergeStatuses = async (req, res) => {
       : hasActiveSubscription
       ? member.subscriptionTier
       : "Free";
-    const freeMergeIsCurrent =
-      isMerged &&
+    const chatContactIds = (member.chatContactsThisCycle || []).map((id) =>
+      id.toString()
+    );
+    const hasExistingChatContact =
+      member2 && chatContactIds.includes(member2.toString());
+    const freeChatAvailable =
       effectiveTier === "Free" &&
       member2 &&
-      mongoose.Types.ObjectId.isValid(member2)
-        ? Boolean(
-            await Merge.findOne({
-              $or: [
-                { member1: m1, member2: new mongoose.Types.ObjectId(member2) },
-                { member1: new mongoose.Types.ObjectId(member2), member2: m1 },
-              ],
-              createdAt: {
-                $gte:
-                  member.lastMergeReset ||
-                  member.chatCycleStartedAt ||
-                  member.createdAt ||
-                  new Date(0),
-              },
-            })
-          )
-        : false;
+      (hasExistingChatContact || chatContactIds.length < 10);
     const canChat = Boolean(
-      member.isAdmin || hasActiveSubscription || freeMergeIsCurrent
+      member.isAdmin || hasActiveSubscription || freeChatAvailable
     );
 
     return res.status(200).json({
