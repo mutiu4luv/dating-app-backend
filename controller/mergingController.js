@@ -222,6 +222,17 @@ exports.mergeMembers = async (req, res) => {
     }
 
     const now = new Date();
+    const lastReset = member1.lastMergeReset || new Date(0);
+
+    if (
+      now.getMonth() !== new Date(lastReset).getMonth() ||
+      now.getFullYear() !== new Date(lastReset).getFullYear()
+    ) {
+      member1.mergeCountThisCycle = 0;
+      member1.lastMergeReset = now;
+      await member1.save();
+    }
+
     const hasActivePaidSubscription = Boolean(
       member1.subscriptionTier &&
         member1.subscriptionTier !== "Free" &&
@@ -238,36 +249,39 @@ exports.mergeMembers = async (req, res) => {
     });
 
     if (existingMerge) {
+      const freeMergeIsCurrent =
+        !hasActivePaidSubscription &&
+        existingMerge.createdAt >=
+          (member1.lastMergeReset ||
+            member1.chatCycleStartedAt ||
+            member1.createdAt ||
+            new Date(0));
+
       return res.status(200).json({
         match: existingMerge,
         alreadyMerged: true,
+        canChat: Boolean(
+          member1.isAdmin || hasActivePaidSubscription || freeMergeIsCurrent
+        ),
         subscriptionTier: member1.subscriptionTier,
         hasPaid: hasActivePaidSubscription,
         subscriptionActive: hasActivePaidSubscription,
       });
     }
 
-    //  DETERMINE PLAN
     const mergeLimits = {
-      Free: 1,
-      Basic: 10,
+      Free: 10,
+      Basic: 20,
       Standard: 30,
       Premium: Infinity,
     };
 
-    const tier = member1.subscriptionTier || "Free";
+    const tier = member1.isAdmin
+      ? "Premium"
+      : hasActivePaidSubscription
+      ? member1.subscriptionTier
+      : "Free";
     const limit = mergeLimits[tier];
-
-    //  MONTHLY RESET
-    const lastReset = member1.lastMergeReset || new Date(0);
-
-    if (
-      now.getMonth() !== lastReset.getMonth() ||
-      now.getFullYear() !== lastReset.getFullYear()
-    ) {
-      member1.mergeCountThisCycle = 0;
-      member1.lastMergeReset = now;
-    }
 
     //  LIMIT CHECK (PREMIUM NEVER BLOCKED)
     if (tier !== "Premium" && member1.mergeCountThisCycle >= limit) {
@@ -288,9 +302,12 @@ exports.mergeMembers = async (req, res) => {
 
     return res.status(200).json({
       match: newMerge,
+      canChat: true,
       subscriptionTier: tier,
       hasPaid: hasActivePaidSubscription,
       subscriptionActive: hasActivePaidSubscription,
+      mergeLimit: limit === Infinity ? "unlimited" : limit,
+      mergeCountThisCycle: member1.mergeCountThisCycle,
     });
   } catch (err) {
     console.error("❌ mergeMembers failed:", err);
@@ -415,23 +432,75 @@ exports.getMergeStatuses = async (req, res) => {
     }
 
     const now = new Date();
+    const lastReset = member.lastMergeReset || new Date(0);
+    if (
+      now.getMonth() !== new Date(lastReset).getMonth() ||
+      now.getFullYear() !== new Date(lastReset).getFullYear()
+    ) {
+      member.mergeCountThisCycle = 0;
+      member.lastMergeReset = now;
+      await member.save();
+    }
+
     const hasActiveSubscription = Boolean(
       member.subscriptionTier &&
         member.subscriptionTier !== "Free" &&
         member.subscriptionExpiresAt &&
         member.subscriptionExpiresAt > now
     );
+    const mergeLimits = {
+      Free: 10,
+      Basic: 20,
+      Standard: 30,
+      Premium: Infinity,
+    };
+    const effectiveTier = member.isAdmin
+      ? "Premium"
+      : hasActiveSubscription
+      ? member.subscriptionTier
+      : "Free";
+    const freeMergeIsCurrent =
+      isMerged &&
+      effectiveTier === "Free" &&
+      member2 &&
+      mongoose.Types.ObjectId.isValid(member2)
+        ? Boolean(
+            await Merge.findOne({
+              $or: [
+                { member1: m1, member2: new mongoose.Types.ObjectId(member2) },
+                { member1: new mongoose.Types.ObjectId(member2), member2: m1 },
+              ],
+              createdAt: {
+                $gte:
+                  member.lastMergeReset ||
+                  member.chatCycleStartedAt ||
+                  member.createdAt ||
+                  new Date(0),
+              },
+            })
+          )
+        : false;
+    const canChat = Boolean(
+      member.isAdmin || hasActiveSubscription || freeMergeIsCurrent
+    );
 
     return res.status(200).json({
       isMerged,
+      canChat,
       hasPaid: hasActiveSubscription,
       subscriptionActive: hasActiveSubscription,
       expired:
         member.subscriptionTier &&
         member.subscriptionTier !== "Free" &&
         (!member.subscriptionExpiresAt || member.subscriptionExpiresAt <= now),
-      subscriptionTier: member.subscriptionTier,
+      subscriptionTier: effectiveTier,
+      accountSubscriptionTier: member.subscriptionTier,
       subscriptionExpiresAt: member.subscriptionExpiresAt,
+      mergeLimit:
+        mergeLimits[effectiveTier] === Infinity
+          ? "unlimited"
+          : mergeLimits[effectiveTier],
+      mergeCountThisCycle: member.mergeCountThisCycle || 0,
       email: member.email,
     });
   } catch (err) {

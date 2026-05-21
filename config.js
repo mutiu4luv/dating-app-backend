@@ -8,14 +8,15 @@ const config = {
       paystackPlanID: process.env.PAYSTACK_BASIC_PLAN_ID || "plan_basic",
       price: 1000, // in kobo
     },
-    Pro: {
-      paystackPlanID: process.env.PAYSTACK_PRO_PLAN_ID || "plan_pro",
-      price: 2000, // in kobo
-    },
-    Enterprise: {
+    Standard: {
       paystackPlanID:
-        process.env.PAYSTACK_ENTERPRISE_PLAN_ID || "plan_enterprise",
+        process.env.PAYSTACK_STANDARD_PLAN_ID || "plan_standard",
       price: 3000, // in kobo
+    },
+    Premium: {
+      paystackPlanID:
+        process.env.PAYSTACK_PREMIUM_PLAN_ID || "plan_premium",
+      price: 5000, // in kobo
     },
   },
 };

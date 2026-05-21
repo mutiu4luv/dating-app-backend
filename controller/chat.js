@@ -1,5 +1,6 @@
 const Message = require("../models/chatModel.js");
 const Member = require("../models/memberModule.js");
+const Merge = require("../models/model/mergesmodel.js");
 const mongoose = require("mongoose");
 
 const CHAT_LIMITS = {
@@ -32,6 +33,38 @@ const resetChatCycleIfExpired = (member) => {
   }
 };
 
+const resetMergeCycleIfMonthChanged = (member) => {
+  const now = new Date();
+  const lastReset = member.lastMergeReset || new Date(0);
+
+  if (
+    now.getMonth() !== new Date(lastReset).getMonth() ||
+    now.getFullYear() !== new Date(lastReset).getFullYear()
+  ) {
+    member.mergeCountThisCycle = 0;
+    member.lastMergeReset = now;
+  }
+};
+
+const getCycleStart = (member) =>
+  member.lastMergeReset || member.chatCycleStartedAt || member.createdAt || new Date(0);
+
+const hasMergeInCurrentCycle = async (memberId, receiverId, member) => {
+  if (!receiverId) return false;
+
+  const cycleStart = getCycleStart(member);
+
+  const merge = await Merge.findOne({
+    $or: [
+      { member1: memberId, member2: receiverId },
+      { member1: receiverId, member2: memberId },
+    ],
+    createdAt: { $gte: cycleStart },
+  });
+
+  return Boolean(merge);
+};
+
 const requireChatAccess = async (
   memberId,
   res,
@@ -45,6 +78,7 @@ const requireChatAccess = async (
   }
 
   resetChatCycleIfExpired(member);
+  resetMergeCycleIfMonthChanged(member);
 
   const tier = getEffectiveChatTier(member);
   const limit = CHAT_LIMITS[tier] ?? CHAT_LIMITS.Free;
@@ -53,6 +87,25 @@ const requireChatAccess = async (
   );
   const receiverKey = receiverId?.toString();
   const hasExistingContact = receiverKey && contactIds.includes(receiverKey);
+
+  if (tier === "Free" && receiverKey) {
+    const canChatFreeContact = await hasMergeInCurrentCycle(
+      memberId,
+      receiverId,
+      member
+    );
+
+    if (!canChatFreeContact) {
+      res.status(403).json({
+        error:
+          "Free users can chat only with the people they merged with this month. Upgrade to chat with more members.",
+        chatLimitReached: true,
+        tier,
+        limit,
+      });
+      return null;
+    }
+  }
 
   if (
     consumeSlot &&
@@ -74,7 +127,12 @@ const requireChatAccess = async (
     member.chatContactsThisCycle.push(receiverId);
   }
 
-  if (member.isModified("chatCycleStartedAt") || member.isModified("chatContactsThisCycle")) {
+  if (
+    member.isModified("chatCycleStartedAt") ||
+    member.isModified("chatContactsThisCycle") ||
+    member.isModified("lastMergeReset") ||
+    member.isModified("mergeCountThisCycle")
+  ) {
     await member.save();
   }
 
