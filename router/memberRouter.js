@@ -18,6 +18,7 @@ const {
   sendOtp,
   getChatDirectoryMembers,
   getSuggestedMembers,
+  changePassword,
 } = require("../controller/memberController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
@@ -31,10 +32,11 @@ router.post("/login", login);
 router.get("/profile", protect, getProfile);
 router.get("/chat-directory", protect, getChatDirectoryMembers);
 router.get("/suggested/:userId", protect, getSuggestedMembers);
+router.post("/change-password", protect, changePassword);
 router.get("/", protect, getAllMembers);
 router.get("/:id", protect, getMemberById);
 router.delete("/:id", protect, deleteMember);
-router.put("/:id", protect, updateMember);
+router.put("/:id", protect, upload.single("photo"), updateMember);
 router.get("/merge/:id", protect, getMembersByRelationshipType);
 router.get("/single/:id", getSingleMember);
 router.get("/:userId/status", getUserStatus);

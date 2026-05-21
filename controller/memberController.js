@@ -71,14 +71,15 @@ const getLocationScore = (currentLocation, otherLocation) => {
 };
 
 const getActivityScore = (member) => {
-  if (member.isOnline) return { score: 10, reason: "Online now" };
+  if (member.isOnline) return { score: 18, reason: "Online now" };
   if (!member.lastSeen) return { score: 0, reason: null };
 
   const lastSeenTime = new Date(member.lastSeen).getTime();
   if (Number.isNaN(lastSeenTime)) return { score: 0, reason: null };
 
   const daysSinceActive = (Date.now() - lastSeenTime) / (1000 * 60 * 60 * 24);
-  if (daysSinceActive <= 7) return { score: 5, reason: "Recently active" };
+  if (daysSinceActive <= 1) return { score: 10, reason: "Active today" };
+  if (daysSinceActive <= 7) return { score: 6, reason: "Recently active" };
   return { score: 0, reason: null };
 };
 
@@ -447,7 +448,7 @@ exports.getSuggestedMembers = async (req, res) => {
           new Date(a.lastSeen || 0).getTime()
         );
       })
-      .slice(0, 16);
+      .slice(0, 24);
 
     res.status(200).json({
       message: "Suggested matches fetched successfully.",
@@ -489,18 +490,35 @@ exports.deleteMember = async (req, res) => {
 
 exports.updateMember = async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const allowedFields = [
+      "name",
+      "age",
+      "gender",
+      "location",
+      "occupation",
+      "maritalStatus",
+      "relationshipType",
+      "username",
+      "email",
+      "phoneNumber",
+      "description",
+    ];
+
+    const updateData = {};
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = field === "age" ? Number(req.body[field]) : req.body[field];
+      }
+    });
 
     if (req.file) {
-      // Example: base64 encode it or save temporarily
-      updateData.photo = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
+      updateData.photo = req.file.path;
     }
-    const member = await Member.findByIdAndUpdate(req.params.id, req.body, {
+
+    const member = await Member.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
-    });
+    }).select("-password");
 
     if (!member) {
       return res.status(404).json({ error: "Member not found" });
@@ -509,6 +527,43 @@ exports.updateMember = async (req, res) => {
     res.status(200).json(member);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Current password and new password are required" });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res
+        .status(400)
+        .json({ message: "New password must be at least 6 characters" });
+    }
+
+    const member = await Member.findById(req.member._id).select("+password");
+    if (!member) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, member.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    member.password = await bcrypt.hash(newPassword, 10);
+    await member.save();
+
+    res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to change password", error: error.message });
   }
 };
 // ✅ Get members by relationship type
