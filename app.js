@@ -100,6 +100,16 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("heartbeat", async (userId) => {
+    if (!userId) return;
+
+    socket.userId = userId;
+    await Member.findByIdAndUpdate(userId, {
+      isOnline: true,
+      lastSeen: new Date(),
+    });
+  });
+
   // ✅ Handle room join
   socket.on("join_room", (room) => {
     socket.join(room);

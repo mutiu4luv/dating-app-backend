@@ -222,6 +222,12 @@ exports.login = async (req, res) => {
 };
 exports.getAllMembers = async (req, res) => {
   try {
+    const staleOnlineCutoff = new Date(Date.now() - 2 * 60 * 1000);
+    await Member.updateMany(
+      { isOnline: true, lastSeen: { $lt: staleOnlineCutoff } },
+      { $set: { isOnline: false } }
+    );
+
     const members = await Member.find().select("-password");
     res.status(200).json(members);
   } catch (error) {
