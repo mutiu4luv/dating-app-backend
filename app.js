@@ -88,10 +88,14 @@ io.on("connection", (socket) => {
     if (!userSockets.has(userId)) userSockets.set(userId, new Set());
     userSockets.get(userId).add(socket.id);
 
-    await Member.findByIdAndUpdate(userId, {
-      isOnline: true,
-      lastSeen: new Date(),
-    });
+    try {
+      await Member.findByIdAndUpdate(userId, {
+        isOnline: true,
+        lastSeen: new Date(),
+      });
+    } catch (error) {
+      console.error("Presence update failed:", error.message);
+    }
 
     io.emit("presence_update", {
       userId,
@@ -104,10 +108,14 @@ io.on("connection", (socket) => {
     if (!userId) return;
 
     socket.userId = userId;
-    await Member.findByIdAndUpdate(userId, {
-      isOnline: true,
-      lastSeen: new Date(),
-    });
+    try {
+      await Member.findByIdAndUpdate(userId, {
+        isOnline: true,
+        lastSeen: new Date(),
+      });
+    } catch (error) {
+      console.error("Heartbeat update failed:", error.message);
+    }
   });
 
   // ✅ Handle room join
@@ -136,10 +144,14 @@ io.on("connection", (socket) => {
       sockets.delete(socket.id);
       if (sockets.size === 0) {
         userSockets.delete(userId);
-        await Member.findByIdAndUpdate(userId, {
-          isOnline: false,
-          lastSeen: new Date(),
-        });
+        try {
+          await Member.findByIdAndUpdate(userId, {
+            isOnline: false,
+            lastSeen: new Date(),
+          });
+        } catch (error) {
+          console.error("Disconnect presence update failed:", error.message);
+        }
 
         io.emit("presence_update", {
           userId,
