@@ -397,3 +397,89 @@ exports.markMessagesAsRead = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.getAdminChatActivity = async (req, res) => {
+  try {
+    if (!req.member?.isAdmin) {
+      return res.status(403).json({ message: "Admins only." });
+    }
+
+    const activity = await Message.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$room",
+          lastMessage: { $first: "$content" },
+          lastImageUrl: { $first: "$imageUrl" },
+          lastMessageAt: { $first: "$createdAt" },
+          lastSenderId: { $first: "$senderId" },
+          lastReceiverId: { $first: "$receiverId" },
+          totalMessages: { $sum: 1 },
+          unreadMessages: {
+            $sum: {
+              $cond: [{ $eq: ["$read", false] }, 1, 0],
+            },
+          },
+          participants: { $addToSet: "$senderId" },
+          receivers: { $addToSet: "$receiverId" },
+        },
+      },
+      {
+        $project: {
+          room: "$_id",
+          lastMessage: 1,
+          lastImageUrl: 1,
+          lastMessageAt: 1,
+          lastSenderId: 1,
+          lastReceiverId: 1,
+          totalMessages: 1,
+          unreadMessages: 1,
+          participantIds: { $setUnion: ["$participants", "$receivers"] },
+        },
+      },
+      {
+        $lookup: {
+          from: "members",
+          localField: "participantIds",
+          foreignField: "_id",
+          as: "participants",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          room: 1,
+          lastMessage: {
+            $cond: [{ $ne: ["$lastMessage", ""] }, "$lastMessage", "Photo"],
+          },
+          lastImageUrl: 1,
+          lastMessageAt: 1,
+          totalMessages: 1,
+          unreadMessages: 1,
+          participants: {
+            $map: {
+              input: "$participants",
+              as: "member",
+              in: {
+                _id: "$$member._id",
+                name: "$$member.name",
+                username: "$$member.username",
+                email: "$$member.email",
+                photo: "$$member.photo",
+                isOnline: "$$member.isOnline",
+                lastSeen: "$$member.lastSeen",
+              },
+            },
+          },
+        },
+      },
+      { $sort: { lastMessageAt: -1 } },
+      { $limit: 100 },
+    ]);
+
+    return res.status(200).json({ data: activity });
+  } catch (err) {
+    console.error("Admin chat activity failed:", err);
+    return res.status(500).json({ message: "Failed to load chat activity" });
+  }
+};
