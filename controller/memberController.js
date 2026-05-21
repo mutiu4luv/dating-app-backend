@@ -94,6 +94,9 @@ const hasActiveSubscription = (member) => {
   return Boolean(member.hasPaid);
 };
 
+const publicSuggestionFields =
+  "photo name username age gender location occupation relationshipType description isOnline lastSeen subscriptionTier subscriptionExpiresAt hasPaid";
+
 const buildSuggestedMatch = (currentUser, candidate) => {
   let score = 0;
   const reasons = [];
@@ -419,7 +422,7 @@ exports.getSuggestedMembers = async (req, res) => {
     }
 
     const currentUser = await Member.findById(requestedUserId).select(
-      "-password"
+      publicSuggestionFields
     );
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
@@ -427,7 +430,7 @@ exports.getSuggestedMembers = async (req, res) => {
 
     const candidates = await Member.find({
       _id: { $ne: currentUser._id },
-    }).select("-password");
+    }).select(publicSuggestionFields);
 
     const suggestions = candidates
       .map((candidate) => buildSuggestedMatch(currentUser, candidate))
