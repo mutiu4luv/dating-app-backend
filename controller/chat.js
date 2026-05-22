@@ -244,6 +244,13 @@ exports.editMessage = async (req, res) => {
       return res.status(400).json({ message: "Deleted messages cannot be edited." });
     }
 
+    const twentyMinutes = 20 * 60 * 1000;
+    if (Date.now() - new Date(message.createdAt).getTime() > twentyMinutes) {
+      return res
+        .status(403)
+        .json({ message: "Messages can only be edited within 20 minutes." });
+    }
+
     message.content = cleanContent;
     message.editedAt = new Date();
     await message.save();

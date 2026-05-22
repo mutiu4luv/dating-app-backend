@@ -144,6 +144,17 @@ io.on("connection", (socket) => {
     target.emit("receive_message", data);
   });
 
+  socket.on("message_edited", (data) => {
+    if (!data?.room) return;
+    socket.to(data.room).emit("message_edited", data);
+  });
+
+  socket.on("message_deleted", (data) => {
+    const room = data?.message?.room;
+    if (!room) return;
+    socket.to(room).emit("message_deleted", data);
+  });
+
   socket.on("disconnect", async () => {
     console.log("❌ Client disconnected: " + socket.id);
 
