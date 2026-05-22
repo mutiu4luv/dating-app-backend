@@ -490,12 +490,27 @@ exports.getAdminConversationMessages = async (req, res) => {
       return res.status(403).json({ message: "Admins only." });
     }
 
-    const { room } = req.params;
-    if (!room) {
-      return res.status(400).json({ message: "Room is required." });
+    const { member1, member2, room } = req.params;
+    const hasExactMembers =
+      mongoose.Types.ObjectId.isValid(member1) &&
+      mongoose.Types.ObjectId.isValid(member2);
+
+    if (!room && !hasExactMembers) {
+      return res
+        .status(400)
+        .json({ message: "Room or two member IDs are required." });
     }
 
-    const messages = await Message.find({ room })
+    const query = hasExactMembers
+      ? {
+          $or: [
+            { senderId: member1, receiverId: member2 },
+            { senderId: member2, receiverId: member1 },
+          ],
+        }
+      : { room };
+
+    const messages = await Message.find(query)
       .sort({ createdAt: 1 })
       .populate("senderId", "name username email photo isOnline lastSeen")
       .populate("receiverId", "name username email photo isOnline lastSeen");
