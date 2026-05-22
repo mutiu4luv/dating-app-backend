@@ -6,7 +6,7 @@ const {
 } = require("../controller/contactController.js");
 const protect = require("../middleware/auth");
 
-router.post("/", protect, createContactMessage);
+router.post("/", createContactMessage);
 router.get("/", protect, getContactMessages);
 
 module.exports = router;
