@@ -9,6 +9,7 @@ const memberRouter = require("./router/memberRouter.js");
 const mergeRouter = require("./router/merginRouter.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
 const chatRouter = require("./router/chatRoute.js");
+const contactRouter = require("./router/contactRoute.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
 const Member = require("./models/memberModule.js");
 
@@ -214,6 +215,7 @@ app.use("/api/merge", mergeRouter);
 app.use("/api/subscription", subscriptionRouter);
 // app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/chat", chatRouter);
+app.use("/api/contact", contactRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to Whoba Ogo Foundation");
