@@ -215,6 +215,10 @@ exports.saveMessage = async (req, res) => {
     });
 
     const saved = await message.save();
+    const io = req.app.get("io");
+    if (io) {
+      io.to(room).to(receiverId.toString()).emit("receive_message", saved);
+    }
 
     return res.status(201).json(saved);
   } catch (err) {
