@@ -483,3 +483,26 @@ exports.getAdminChatActivity = async (req, res) => {
     return res.status(500).json({ message: "Failed to load chat activity" });
   }
 };
+
+exports.getAdminConversationMessages = async (req, res) => {
+  try {
+    if (!req.member?.isAdmin) {
+      return res.status(403).json({ message: "Admins only." });
+    }
+
+    const { room } = req.params;
+    if (!room) {
+      return res.status(400).json({ message: "Room is required." });
+    }
+
+    const messages = await Message.find({ room })
+      .sort({ createdAt: 1 })
+      .populate("senderId", "name username email photo isOnline lastSeen")
+      .populate("receiverId", "name username email photo isOnline lastSeen");
+
+    return res.status(200).json({ data: messages });
+  } catch (err) {
+    console.error("Admin conversation messages failed:", err);
+    return res.status(500).json({ message: "Failed to load conversation" });
+  }
+};

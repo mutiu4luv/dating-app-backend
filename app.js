@@ -108,6 +108,11 @@ io.on("connection", (socket) => {
     if (!userId) return;
 
     socket.userId = userId;
+    socket.join(userId.toString());
+
+    if (!userSockets.has(userId)) userSockets.set(userId, new Set());
+    userSockets.get(userId).add(socket.id);
+
     try {
       await Member.findByIdAndUpdate(userId, {
         isOnline: true,
@@ -116,6 +121,12 @@ io.on("connection", (socket) => {
     } catch (error) {
       console.error("Heartbeat update failed:", error.message);
     }
+
+    io.emit("presence_update", {
+      userId,
+      isOnline: true,
+      lastSeen: new Date(),
+    });
   });
 
   // ✅ Handle room join

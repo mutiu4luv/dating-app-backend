@@ -383,7 +383,7 @@ exports.login = async (req, res) => {
 };
 exports.getAllMembers = async (req, res) => {
   try {
-    const staleOnlineCutoff = new Date(Date.now() - 2 * 60 * 1000);
+    const staleOnlineCutoff = new Date(Date.now() - 5 * 60 * 1000);
     await Member.updateMany(
       { isOnline: true, lastSeen: { $lt: staleOnlineCutoff } },
       { $set: { isOnline: false } }
@@ -782,8 +782,8 @@ exports.getUserStatus = async (req, res) => {
 
     let isOnline = user.isOnline;
 
-    // ✅ Auto-set offline after 10 minutes of inactivity
-    if (isOnline && lastSeen && now.diff(lastSeen, "minute") >= 10) {
+    // Keep mobile users active through short browser timer pauses.
+    if (isOnline && lastSeen && now.diff(lastSeen, "minute") >= 5) {
       isOnline = false;
 
       // Persist ONLY the online flag
