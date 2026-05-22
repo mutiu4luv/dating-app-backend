@@ -159,7 +159,10 @@ exports.getChatMessages = async (req, res) => {
     if (!sender) return;
 
     // 👌 If subscription valid → fetch messages
-    const messages = await Message.find({ room }).sort({ createdAt: 1 });
+    const messages = await Message.find({
+      room,
+      deletedFor: { $ne: req.member._id },
+    }).sort({ createdAt: 1 });
     res.json(messages);
   } catch (err) {
     console.error("❌ Error fetching messages", err);
@@ -172,6 +175,7 @@ exports.saveMessage = async (req, res) => {
     const { senderId, receiverId, content = "", room } = req.body;
     const imageUrl = req.file?.path || "";
     const cleanContent = content.trim();
+    const replyTo = req.body.replyTo ? JSON.parse(req.body.replyTo) : null;
 
     if (!senderId || !receiverId || !room || (!cleanContent && !imageUrl)) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -200,6 +204,14 @@ exports.saveMessage = async (req, res) => {
       content: cleanContent,
       imageUrl,
       room,
+      replyTo: replyTo
+        ? {
+            messageId: replyTo.messageId,
+            senderId: replyTo.senderId,
+            content: replyTo.content || "",
+            imageUrl: replyTo.imageUrl || "",
+          }
+        : undefined,
     });
 
     const saved = await message.save();
@@ -208,6 +220,77 @@ exports.saveMessage = async (req, res) => {
   } catch (err) {
     console.error("❌ Message saving failed:", err.message);
     res.status(500).json({ error: "Failed to save message" });
+  }
+};
+
+exports.editMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content = "" } = req.body;
+    const cleanContent = content.trim();
+
+    if (!cleanContent) {
+      return res.status(400).json({ message: "Message cannot be empty." });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found." });
+
+    if (message.senderId.toString() !== req.member._id.toString()) {
+      return res.status(403).json({ message: "You can only edit your own message." });
+    }
+
+    if (message.deletedForEveryone) {
+      return res.status(400).json({ message: "Deleted messages cannot be edited." });
+    }
+
+    message.content = cleanContent;
+    message.editedAt = new Date();
+    await message.save();
+
+    return res.status(200).json(message);
+  } catch (err) {
+    console.error("Edit message failed:", err);
+    return res.status(500).json({ message: "Failed to edit message." });
+  }
+};
+
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { mode = "me" } = req.body;
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found." });
+
+    if (mode === "everyone") {
+      if (message.senderId.toString() !== req.member._id.toString()) {
+        return res
+          .status(403)
+          .json({ message: "You can only delete your own message for everyone." });
+      }
+
+      message.deletedForEveryone = true;
+      message.content = "";
+      message.imageUrl = "";
+      message.editedAt = undefined;
+      await message.save();
+
+      return res.status(200).json({ mode, message });
+    }
+
+    const alreadyDeleted = (message.deletedFor || []).some(
+      (id) => id.toString() === req.member._id.toString()
+    );
+    if (!alreadyDeleted) {
+      message.deletedFor.push(req.member._id);
+      await message.save();
+    }
+
+    return res.status(200).json({ mode: "me", messageId });
+  } catch (err) {
+    console.error("Delete message failed:", err);
+    return res.status(500).json({ message: "Failed to delete message." });
   }
 };
 

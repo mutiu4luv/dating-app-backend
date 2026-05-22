@@ -8,12 +8,16 @@ const {
   markMessagesAsRead,
   getAdminChatActivity,
   getAdminConversationMessages,
+  editMessage,
+  deleteMessage,
 } = require("../controller/chat");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
 
 router.get("/", protect, getChatMessages);
 router.post("/save", protect, upload.single("image"), saveMessage);
+router.put("/message/:messageId", protect, editMessage);
+router.delete("/message/:messageId", protect, deleteMessage);
 router.get("/conversations/:userId", protect, getUserConversations);
 router.get("/admin/activity", protect, getAdminChatActivity);
 router.get(

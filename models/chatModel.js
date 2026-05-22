@@ -14,6 +14,23 @@ const messageSchema = new mongoose.Schema(
     },
     content: { type: String, default: "" },
     imageUrl: { type: String, default: "" },
+    replyTo: {
+      messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
+      senderId: { type: mongoose.Schema.Types.ObjectId, ref: "Member" },
+      content: { type: String, default: "" },
+      imageUrl: { type: String, default: "" },
+    },
+    editedAt: Date,
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Member",
+      },
+    ],
+    deletedForEveryone: {
+      type: Boolean,
+      default: false,
+    },
     room: { type: String, required: true },
     read: {
       type: Boolean,
