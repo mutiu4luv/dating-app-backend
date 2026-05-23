@@ -5,6 +5,7 @@ const {
   saveMessage,
   getUserConversations,
   getUnreadMessageCount,
+  getLatestUnreadMessage,
   markMessagesAsRead,
   getAdminChatActivity,
   getAdminConversationMessages,
@@ -26,6 +27,7 @@ router.get(
   getAdminConversationMessages
 );
 router.get("/admin/conversation/:room", protect, getAdminConversationMessages);
+router.get("/unread/latest/:userId", protect, getLatestUnreadMessage);
 router.get("/unread/count/:userId", protect, getUnreadMessageCount);
 router.put("/read/:userId", protect, markMessagesAsRead);
 

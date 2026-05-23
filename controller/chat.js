@@ -215,6 +215,7 @@ exports.saveMessage = async (req, res) => {
     });
 
     const saved = await message.save();
+    await saved.populate("senderId", "name username photo");
     const io = req.app.get("io");
     if (io) {
       io.to(receiverId.toString()).emit("receive_message", saved);
@@ -442,6 +443,31 @@ exports.getUnreadMessageCount = async (req, res) => {
     res.status(200).json({ unreadCount: count });
   } catch (err) {
     console.error("Error fetching unread message count:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getLatestUnreadMessage = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (req.member._id.toString() !== userId && !req.member.isAdmin) {
+      return res.status(403).json({ message: "Not allowed." });
+    }
+
+    const message = await Message.findOne({
+      receiverId: userId,
+      read: false,
+      deletedFor: { $ne: req.member._id },
+      deletedForEveryone: { $ne: true },
+    })
+      .sort({ createdAt: -1 })
+      .populate("senderId", "name username photo")
+      .lean();
+
+    res.status(200).json({ data: message || null });
+  } catch (err) {
+    console.error("Error fetching latest unread message:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
