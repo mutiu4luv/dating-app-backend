@@ -498,6 +498,22 @@ exports.getAdminChatActivity = async (req, res) => {
       return res.status(403).json({ message: "Admins only." });
     }
 
+    const [summary] = await Message.aggregate([
+      {
+        $group: {
+          _id: "$room",
+          totalMessages: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalConversations: { $sum: 1 },
+          totalMessages: { $sum: "$totalMessages" },
+        },
+      },
+    ]);
+
     const activity = await Message.aggregate([
       { $sort: { createdAt: -1 } },
       {
@@ -568,10 +584,13 @@ exports.getAdminChatActivity = async (req, res) => {
         },
       },
       { $sort: { lastMessageAt: -1 } },
-      { $limit: 100 },
     ]);
 
-    return res.status(200).json({ data: activity });
+    return res.status(200).json({
+      data: activity,
+      totalConversations: summary?.totalConversations || activity.length,
+      totalMessages: summary?.totalMessages || 0,
+    });
   } catch (err) {
     console.error("Admin chat activity failed:", err);
     return res.status(500).json({ message: "Failed to load chat activity" });
