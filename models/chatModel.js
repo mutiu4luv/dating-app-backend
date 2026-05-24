@@ -21,6 +21,17 @@ const messageSchema = new mongoose.Schema(
       imageUrl: { type: String, default: "" },
     },
     editedAt: Date,
+    reactions: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Member",
+          required: true,
+        },
+        emoji: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     deletedFor: [
       {
         type: mongoose.Schema.Types.ObjectId,

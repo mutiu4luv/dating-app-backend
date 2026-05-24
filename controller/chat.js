@@ -332,6 +332,57 @@ exports.deleteMessage = async (req, res) => {
   }
 };
 
+exports.reactToMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji = "" } = req.body;
+    const allowedReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+    if (!allowedReactions.includes(emoji)) {
+      return res.status(400).json({ message: "Unsupported reaction." });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found." });
+
+    const currentUserId = req.member._id.toString();
+    const isParticipant =
+      message.senderId.toString() === currentUserId ||
+      message.receiverId.toString() === currentUserId;
+
+    if (!isParticipant) {
+      return res.status(403).json({ message: "You cannot react to this message." });
+    }
+
+    if (message.deletedForEveryone) {
+      return res.status(400).json({ message: "Deleted messages cannot be reacted to." });
+    }
+
+    message.reactions = (message.reactions || []).filter(
+      (reaction) => reaction.userId.toString() !== currentUserId
+    );
+    message.reactions.push({
+      userId: req.member._id,
+      emoji,
+      createdAt: new Date(),
+    });
+
+    await message.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(message.room).emit("message_reacted", message);
+      io.to(message.senderId.toString()).emit("message_reacted", message);
+      io.to(message.receiverId.toString()).emit("message_reacted", message);
+    }
+
+    return res.status(200).json(message);
+  } catch (err) {
+    console.error("React to message failed:", err);
+    return res.status(500).json({ message: "Failed to react to message." });
+  }
+};
+
 // exports.saveMessage = async (req, res) => {
 //   try {
 //     const { senderId, receiverId, content, room } = req.body;
