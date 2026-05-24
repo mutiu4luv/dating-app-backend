@@ -79,6 +79,7 @@ app.set("io", io);
 const onlineUsers = new Map(); // Store socket-to-user mapping
 
 const userSockets = new Map(); // ensure this is defined above
+const offlineTimers = new Map();
 
 io.on("connection", (socket) => {
   console.log("🔌 New client connected: " + socket.id);
@@ -86,6 +87,11 @@ io.on("connection", (socket) => {
   socket.on("register_user", async (userId) => {
     socket.userId = userId;
     socket.join(userId.toString());
+
+    if (offlineTimers.has(userId)) {
+      clearTimeout(offlineTimers.get(userId));
+      offlineTimers.delete(userId);
+    }
 
     if (!userSockets.has(userId)) userSockets.set(userId, new Set());
     userSockets.get(userId).add(socket.id);
@@ -111,6 +117,11 @@ io.on("connection", (socket) => {
 
     socket.userId = userId;
     socket.join(userId.toString());
+
+    if (offlineTimers.has(userId)) {
+      clearTimeout(offlineTimers.get(userId));
+      offlineTimers.delete(userId);
+    }
 
     if (!userSockets.has(userId)) userSockets.set(userId, new Set());
     userSockets.get(userId).add(socket.id);
@@ -196,20 +207,27 @@ io.on("connection", (socket) => {
       sockets.delete(socket.id);
       if (sockets.size === 0) {
         userSockets.delete(userId);
-        try {
-          await Member.findByIdAndUpdate(userId, {
+        const offlineTimer = setTimeout(async () => {
+          if (userSockets.has(userId)) return;
+
+          try {
+            await Member.findByIdAndUpdate(userId, {
+              isOnline: false,
+              lastSeen: new Date(),
+            });
+          } catch (error) {
+            console.error("Disconnect presence update failed:", error.message);
+          }
+
+          io.emit("presence_update", {
+            userId,
             isOnline: false,
             lastSeen: new Date(),
           });
-        } catch (error) {
-          console.error("Disconnect presence update failed:", error.message);
-        }
+          offlineTimers.delete(userId);
+        }, 5 * 60 * 1000);
 
-        io.emit("presence_update", {
-          userId,
-          isOnline: false,
-          lastSeen: new Date(),
-        });
+        offlineTimers.set(userId, offlineTimer);
       }
     }
   });

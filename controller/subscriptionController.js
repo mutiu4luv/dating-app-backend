@@ -134,6 +134,10 @@ exports.confirmSubscriptionPayment = async (req, res) => {
       return res.status(400).json({ message: "Missing payment data" });
     }
 
+    if (!["Basic", "Standard", "Premium"].includes(plan)) {
+      return res.status(400).json({ message: "Invalid paid subscription plan" });
+    }
+
     // 1️⃣ VERIFY PAYSTACK
     const paystackRes = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -179,11 +183,16 @@ exports.confirmSubscriptionPayment = async (req, res) => {
     user.mergeCountThisCycle = 0;
     user.lastMergeReset = new Date();
     user.hasPaid = true;
+    user.transactionAmount = transaction.amount;
+    user.transactionStatus = transaction.status;
+    user.transactionReference = reference;
+    user.authorizationUrl = transaction.authorization?.authorization_code || "";
 
     await user.save();
 
     return res.status(200).json({
       message: "Subscription activated",
+      subscriptionTier: user.subscriptionTier,
       expiresAt: user.subscriptionExpiresAt,
       hasPaid: true,
     });
@@ -301,6 +310,14 @@ exports.initiatePayment = async (req, res) => {
   const { email, amount, member1, member2, plan, redirect_url } = req.body;
 
   try {
+    if (!email || !amount || !member1 || !member2 || !plan || !redirect_url) {
+      return res.status(400).json({ error: "Missing payment initiation data" });
+    }
+
+    if (!["Basic", "Standard", "Premium"].includes(plan)) {
+      return res.status(400).json({ error: "Invalid paid subscription plan" });
+    }
+
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {

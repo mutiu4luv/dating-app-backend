@@ -214,6 +214,15 @@ exports.mergeMembers = async (req, res) => {
       return res.status(400).json({ message: "Cannot merge same member" });
     }
 
+    if (
+      !mongoose.Types.ObjectId.isValid(memberId1) ||
+      !mongoose.Types.ObjectId.isValid(memberId2)
+    ) {
+      return res.status(400).json({
+        message: "Invalid member selected. Please choose a real member to merge with.",
+      });
+    }
+
     const member1 = await memberModule.findById(memberId1);
     const member2 = await memberModule.findById(memberId2);
 
@@ -292,10 +301,31 @@ exports.mergeMembers = async (req, res) => {
     }
 
     //  CREATE MERGE FIRST
-    const newMerge = await Merge.create({
-      member1: member1._id,
-      member2: member2._id,
-    });
+    let newMerge;
+    try {
+      newMerge = await Merge.create({
+        member1: member1._id,
+        member2: member2._id,
+      });
+    } catch (createError) {
+      if (createError.code !== 11000) throw createError;
+
+      newMerge = await Merge.findOne({
+        $or: [
+          { member1: memberId1, member2: memberId2 },
+          { member1: memberId2, member2: memberId1 },
+        ],
+      });
+
+      return res.status(200).json({
+        match: newMerge,
+        alreadyMerged: true,
+        canChat: true,
+        subscriptionTier: tier,
+        hasPaid: hasActivePaidSubscription,
+        subscriptionActive: hasActivePaidSubscription,
+      });
+    }
 
     //  INCREMENT COUNT ONLY AFTER SUCCESS
     member1.mergeCountThisCycle += 1;
