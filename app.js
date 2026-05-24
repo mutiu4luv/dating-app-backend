@@ -157,6 +157,34 @@ io.on("connection", (socket) => {
     socket.to(room).emit("message_deleted", data);
   });
 
+  socket.on("voice_call_offer", (data = {}) => {
+    if (!data.toUserId || !data.fromUserId || !data.offer) return;
+    io.to(data.toUserId.toString()).emit("voice_call_offer", {
+      ...data,
+      fromSocketId: socket.id,
+    });
+  });
+
+  socket.on("voice_call_answer", (data = {}) => {
+    if (!data.toUserId || !data.answer) return;
+    io.to(data.toUserId.toString()).emit("voice_call_answer", data);
+  });
+
+  socket.on("voice_call_ice_candidate", (data = {}) => {
+    if (!data.toUserId || !data.candidate) return;
+    io.to(data.toUserId.toString()).emit("voice_call_ice_candidate", data);
+  });
+
+  socket.on("voice_call_rejected", (data = {}) => {
+    if (!data.toUserId) return;
+    io.to(data.toUserId.toString()).emit("voice_call_rejected", data);
+  });
+
+  socket.on("voice_call_ended", (data = {}) => {
+    if (!data.toUserId) return;
+    io.to(data.toUserId.toString()).emit("voice_call_ended", data);
+  });
+
   socket.on("disconnect", async () => {
     console.log("❌ Client disconnected: " + socket.id);
 
