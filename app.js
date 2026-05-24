@@ -168,6 +168,16 @@ io.on("connection", (socket) => {
     socket.to(room).emit("message_deleted", data);
   });
 
+  socket.on("typing_start", (data = {}) => {
+    if (!data.room || !data.senderId || !data.receiverId) return;
+    socket.to(data.room).to(data.receiverId.toString()).emit("typing_start", data);
+  });
+
+  socket.on("typing_stop", (data = {}) => {
+    if (!data.room || !data.senderId || !data.receiverId) return;
+    socket.to(data.room).to(data.receiverId.toString()).emit("typing_stop", data);
+  });
+
   socket.on("voice_call_offer", (data = {}) => {
     if (!data.toUserId || !data.fromUserId || !data.offer) return;
     io.to(data.toUserId.toString()).emit("voice_call_offer", {
