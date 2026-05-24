@@ -137,7 +137,8 @@ const requireChatAccess = async (
 //   }
 // };
 exports.getChatMessages = async (req, res) => {
-  const { member1, member2 } = req.query;
+  const { member1, member2, before, latest } = req.query;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 0, 0), 80);
 
   if (!member1 || !member2) {
     return res
@@ -158,11 +159,36 @@ exports.getChatMessages = async (req, res) => {
     });
     if (!sender) return;
 
-    // 👌 If subscription valid → fetch messages
-    const messages = await Message.find({
+    const query = {
       room,
       deletedFor: { $ne: req.member._id },
-    }).sort({ createdAt: 1 });
+    };
+
+    if (before) {
+      const beforeDate = new Date(before);
+      if (!Number.isNaN(beforeDate.getTime())) {
+        query.createdAt = { $lt: beforeDate };
+      }
+    }
+
+    if (limit || latest === "true") {
+      const pageSize = limit || 40;
+      const newestFirst = await Message.find(query)
+        .sort({ createdAt: -1 })
+        .limit(pageSize + 1);
+
+      const hasMore = newestFirst.length > pageSize;
+      const messages = newestFirst.slice(0, pageSize).reverse();
+
+      return res.json({
+        messages,
+        hasMore,
+        nextBefore: messages[0]?.createdAt || null,
+      });
+    }
+
+    // 👌 If subscription valid → fetch messages
+    const messages = await Message.find(query).sort({ createdAt: 1 });
     res.json(messages);
   } catch (err) {
     console.error("❌ Error fetching messages", err);
