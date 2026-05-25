@@ -35,6 +35,38 @@ const resetContactCycleIfExpired = (member) => {
 const buildLimitMessage = (tier, limit) =>
   `${tier} plan can connect with ${limit} people in one month. Upgrade to enjoy a better plan and continue making calls.`;
 
+const formatCallDateTime12Hour = (value) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+};
+
+const formatCallLogForClient = (log) => {
+  const data = typeof log.toObject === "function" ? log.toObject() : log;
+  const callDate = data.startedAt || data.answeredAt || data.endedAt || data.createdAt;
+
+  return {
+    ...data,
+    callTime: formatCallDateTime12Hour(callDate),
+    startedAt12Hour: formatCallDateTime12Hour(data.startedAt),
+    answeredAt12Hour: formatCallDateTime12Hour(data.answeredAt),
+    endedAt12Hour: formatCallDateTime12Hour(data.endedAt),
+    createdAt12Hour: formatCallDateTime12Hour(data.createdAt),
+    updatedAt12Hour: formatCallDateTime12Hour(data.updatedAt),
+  };
+};
+
 exports.checkCallAccessForSocket = async ({
   callerId,
   receiverId,
@@ -121,7 +153,7 @@ exports.getMyCallLogs = async (req, res) => {
       .sort({ startedAt: -1, createdAt: -1 })
       .limit(80);
 
-    return res.status(200).json({ logs });
+    return res.status(200).json({ logs: logs.map(formatCallLogForClient) });
   } catch (error) {
     console.error("Failed to load call logs:", error);
     return res.status(500).json({ message: "Failed to load call logs." });
@@ -148,7 +180,7 @@ exports.getCallLogsWithMember = async (req, res) => {
       .sort({ startedAt: 1, createdAt: 1 })
       .limit(120);
 
-    return res.status(200).json({ logs });
+    return res.status(200).json({ logs: logs.map(formatCallLogForClient) });
   } catch (error) {
     console.error("Failed to load call logs with member:", error);
     return res.status(500).json({ message: "Failed to load call logs." });
