@@ -43,6 +43,16 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     room: { type: String, required: true },
+    messageType: {
+      type: String,
+      enum: ["text", "missed_call"],
+      default: "text",
+    },
+    callId: {
+      type: String,
+      default: "",
+      index: true,
+    },
     read: {
       type: Boolean,
       default: false,

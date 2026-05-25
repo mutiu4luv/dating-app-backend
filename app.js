@@ -13,6 +13,7 @@ const contactRouter = require("./router/contactRoute.js");
 const callRouter = require("./router/callRoute.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
 const Member = require("./models/memberModule.js");
+const Message = require("./models/chatModel.js");
 const {
   checkCallAccessForSocket,
   markCallLog,
@@ -105,6 +106,33 @@ const emitCallLogUpdated = (data = {}) => {
   if (data.toUserId) {
     io.to(data.toUserId.toString()).emit("voice_call_log_updated", data);
   }
+};
+
+const createMissedCallUnreadMessage = async (data = {}) => {
+  if (!data.callId || !data.fromUserId || !data.toUserId) return null;
+
+  const room = [data.fromUserId.toString(), data.toUserId.toString()]
+    .sort()
+    .join("_");
+
+  const message = await Message.findOneAndUpdate(
+    { callId: data.callId, messageType: "missed_call" },
+    {
+      $setOnInsert: {
+        senderId: data.fromUserId,
+        receiverId: data.toUserId,
+        room,
+        content: "Missed voice call",
+        messageType: "missed_call",
+        callId: data.callId,
+        read: false,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).populate("senderId", "name username photo");
+
+  io.to(data.toUserId.toString()).emit("receive_message", message);
+  return message;
 };
 
 io.on("connection", (socket) => {
@@ -216,6 +244,7 @@ io.on("connection", (socket) => {
           status: "missed",
           endedAt: new Date(),
         });
+        await createMissedCallUnreadMessage(data);
         socket.emit("voice_call_unavailable", {
           ...data,
           message: "User is not available for calls right now.",
@@ -256,6 +285,7 @@ io.on("connection", (socket) => {
           status: "missed",
           endedAt: new Date(),
         });
+        await createMissedCallUnreadMessage(data);
         io.to(data.fromUserId.toString()).emit("voice_call_missed", data);
         io.to(data.toUserId.toString()).emit("voice_call_missed", data);
         emitCallLogUpdated(data);
