@@ -128,6 +128,33 @@ exports.getMyCallLogs = async (req, res) => {
   }
 };
 
+exports.getCallLogsWithMember = async (req, res) => {
+  try {
+    const userId = req.member._id;
+    const { memberId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(memberId)) {
+      return res.status(400).json({ message: "Invalid member ID." });
+    }
+
+    const logs = await CallLog.find({
+      $or: [
+        { callerId: userId, receiverId: memberId },
+        { callerId: memberId, receiverId: userId },
+      ],
+    })
+      .populate("callerId", "name username photo")
+      .populate("receiverId", "name username photo")
+      .sort({ createdAt: 1 })
+      .limit(120);
+
+    return res.status(200).json({ logs });
+  } catch (error) {
+    console.error("Failed to load call logs with member:", error);
+    return res.status(500).json({ message: "Failed to load call logs." });
+  }
+};
+
 exports.markCallLog = async ({
   callId,
   callerId,
@@ -138,17 +165,23 @@ exports.markCallLog = async ({
 }) => {
   if (!callId || !callerId || !receiverId) return null;
 
+  const existing = await CallLog.findOne({ callId }).select(
+    "callerId receiverId answeredAt"
+  );
+
   const update = {
     callId,
-    callerId,
-    receiverId,
     status,
   };
+
+  if (!existing) {
+    update.callerId = callerId;
+    update.receiverId = receiverId;
+  }
 
   if (answeredAt) update.answeredAt = answeredAt;
   if (endedAt) update.endedAt = endedAt;
   if (endedAt && !answeredAt) {
-    const existing = await CallLog.findOne({ callId }).select("answeredAt");
     if (existing?.answeredAt) update.answeredAt = existing.answeredAt;
   }
   if (update.answeredAt && endedAt) {

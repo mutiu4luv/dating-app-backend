@@ -93,6 +93,20 @@ const clearMissedCallTimer = (callId) => {
   missedCallTimers.delete(callId);
 };
 
+const hasActiveSocket = (userId) => {
+  const sockets = userSockets.get(userId?.toString());
+  return Boolean(sockets && sockets.size > 0);
+};
+
+const emitCallLogUpdated = (data = {}) => {
+  if (data.fromUserId) {
+    io.to(data.fromUserId.toString()).emit("voice_call_log_updated", data);
+  }
+  if (data.toUserId) {
+    io.to(data.toUserId.toString()).emit("voice_call_log_updated", data);
+  }
+};
+
 io.on("connection", (socket) => {
   console.log("🔌 New client connected: " + socket.id);
 
@@ -194,6 +208,22 @@ io.on("connection", (socket) => {
     if (!data.toUserId || !data.fromUserId || !data.offer) return;
 
     try {
+      if (!hasActiveSocket(data.toUserId)) {
+        await markCallLog({
+          callId: data.callId,
+          callerId: data.fromUserId,
+          receiverId: data.toUserId,
+          status: "missed",
+          endedAt: new Date(),
+        });
+        socket.emit("voice_call_unavailable", {
+          ...data,
+          message: "User is not available for calls right now.",
+        });
+        emitCallLogUpdated(data);
+        return;
+      }
+
       const access = await checkCallAccessForSocket({
         callerId: data.fromUserId,
         receiverId: data.toUserId,
@@ -215,6 +245,7 @@ io.on("connection", (socket) => {
         receiverId: data.toUserId,
         status: "ringing",
       });
+      emitCallLogUpdated(data);
 
       clearMissedCallTimer(data.callId);
       const missedTimer = setTimeout(async () => {
@@ -227,8 +258,9 @@ io.on("connection", (socket) => {
         });
         io.to(data.fromUserId.toString()).emit("voice_call_missed", data);
         io.to(data.toUserId.toString()).emit("voice_call_missed", data);
+        emitCallLogUpdated(data);
         missedCallTimers.delete(data.callId);
-      }, 45 * 1000);
+      }, 60 * 1000);
       missedCallTimers.set(data.callId, missedTimer);
     } catch (error) {
       console.error("Voice call offer failed:", error.message);
@@ -255,6 +287,11 @@ io.on("connection", (socket) => {
       status: "answered",
       answeredAt: new Date(),
     });
+    emitCallLogUpdated({
+      ...data,
+      fromUserId: data.toUserId,
+      toUserId: data.fromUserId,
+    });
     io.to(data.toUserId.toString()).emit("voice_call_answer", data);
   });
 
@@ -273,6 +310,11 @@ io.on("connection", (socket) => {
       status: "declined",
       endedAt: new Date(),
     });
+    emitCallLogUpdated({
+      ...data,
+      fromUserId: data.toUserId,
+      toUserId: data.fromUserId,
+    });
     io.to(data.toUserId.toString()).emit("voice_call_rejected", data);
   });
 
@@ -286,6 +328,7 @@ io.on("connection", (socket) => {
       status: "ended",
       endedAt: new Date(),
     });
+    emitCallLogUpdated(data);
     io.to(data.toUserId.toString()).emit("voice_call_ended", data);
   });
 
