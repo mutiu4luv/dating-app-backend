@@ -366,7 +366,9 @@ exports.reactToMessage = async (req, res) => {
       (reaction) => reaction.userId.toString() !== currentUserId
     );
 
-    if (existingReaction?.emoji !== emoji) {
+    const reactionAdded = existingReaction?.emoji !== emoji;
+
+    if (reactionAdded) {
       message.reactions.push({
         userId: req.member._id,
         emoji,
@@ -378,9 +380,21 @@ exports.reactToMessage = async (req, res) => {
 
     const io = req.app.get("io");
     if (io) {
-      io.to(message.room).emit("message_reacted", message);
-      io.to(message.senderId.toString()).emit("message_reacted", message);
-      io.to(message.receiverId.toString()).emit("message_reacted", message);
+      const payload = {
+        ...message.toObject(),
+        reactionEvent: {
+          added: reactionAdded,
+          emoji,
+          reactorId: req.member._id,
+          reactorName: req.member.username || req.member.name || "Someone",
+          reactorPhoto: req.member.photo || "",
+          targetUserId: message.senderId,
+        },
+      };
+
+      io.to(message.room).emit("message_reacted", payload);
+      io.to(message.senderId.toString()).emit("message_reacted", payload);
+      io.to(message.receiverId.toString()).emit("message_reacted", payload);
     }
 
     return res.status(200).json(message);
