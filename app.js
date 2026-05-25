@@ -10,8 +10,13 @@ const mergeRouter = require("./router/merginRouter.js");
 const subscriptionRouter = require("./router/subcriptionRouter.js");
 const chatRouter = require("./router/chatRoute.js");
 const contactRouter = require("./router/contactRoute.js");
+const callRouter = require("./router/callRoute.js");
 const { paystackWebhookHandler } = require("./webhooks/paystack.js");
 const Member = require("./models/memberModule.js");
+const {
+  checkCallAccessForSocket,
+  markCallLog,
+} = require("./controller/callController.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -80,6 +85,13 @@ const onlineUsers = new Map(); // Store socket-to-user mapping
 
 const userSockets = new Map(); // ensure this is defined above
 const offlineTimers = new Map();
+const missedCallTimers = new Map();
+
+const clearMissedCallTimer = (callId) => {
+  if (!callId || !missedCallTimers.has(callId)) return;
+  clearTimeout(missedCallTimers.get(callId));
+  missedCallTimers.delete(callId);
+};
 
 io.on("connection", (socket) => {
   console.log("🔌 New client connected: " + socket.id);
@@ -178,16 +190,71 @@ io.on("connection", (socket) => {
     socket.to(data.room).to(data.receiverId.toString()).emit("typing_stop", data);
   });
 
-  socket.on("voice_call_offer", (data = {}) => {
+  socket.on("voice_call_offer", async (data = {}) => {
     if (!data.toUserId || !data.fromUserId || !data.offer) return;
+
+    try {
+      const access = await checkCallAccessForSocket({
+        callerId: data.fromUserId,
+        receiverId: data.toUserId,
+      });
+
+      if (!access.allowed) {
+        socket.emit("voice_call_blocked", {
+          callId: data.callId,
+          message: access.message,
+          tier: access.tier,
+          limit: access.limit,
+        });
+        return;
+      }
+
+      await markCallLog({
+        callId: data.callId,
+        callerId: data.fromUserId,
+        receiverId: data.toUserId,
+        status: "ringing",
+      });
+
+      clearMissedCallTimer(data.callId);
+      const missedTimer = setTimeout(async () => {
+        await markCallLog({
+          callId: data.callId,
+          callerId: data.fromUserId,
+          receiverId: data.toUserId,
+          status: "missed",
+          endedAt: new Date(),
+        });
+        io.to(data.fromUserId.toString()).emit("voice_call_missed", data);
+        io.to(data.toUserId.toString()).emit("voice_call_missed", data);
+        missedCallTimers.delete(data.callId);
+      }, 45 * 1000);
+      missedCallTimers.set(data.callId, missedTimer);
+    } catch (error) {
+      console.error("Voice call offer failed:", error.message);
+      socket.emit("voice_call_blocked", {
+        callId: data.callId,
+        message: "Unable to start this call. Please try again.",
+      });
+      return;
+    }
+
     io.to(data.toUserId.toString()).emit("voice_call_offer", {
       ...data,
       fromSocketId: socket.id,
     });
   });
 
-  socket.on("voice_call_answer", (data = {}) => {
+  socket.on("voice_call_answer", async (data = {}) => {
     if (!data.toUserId || !data.answer) return;
+    clearMissedCallTimer(data.callId);
+    await markCallLog({
+      callId: data.callId,
+      callerId: data.toUserId,
+      receiverId: data.fromUserId,
+      status: "answered",
+      answeredAt: new Date(),
+    });
     io.to(data.toUserId.toString()).emit("voice_call_answer", data);
   });
 
@@ -196,13 +263,29 @@ io.on("connection", (socket) => {
     io.to(data.toUserId.toString()).emit("voice_call_ice_candidate", data);
   });
 
-  socket.on("voice_call_rejected", (data = {}) => {
+  socket.on("voice_call_rejected", async (data = {}) => {
     if (!data.toUserId) return;
+    clearMissedCallTimer(data.callId);
+    await markCallLog({
+      callId: data.callId,
+      callerId: data.toUserId,
+      receiverId: data.fromUserId,
+      status: "declined",
+      endedAt: new Date(),
+    });
     io.to(data.toUserId.toString()).emit("voice_call_rejected", data);
   });
 
-  socket.on("voice_call_ended", (data = {}) => {
+  socket.on("voice_call_ended", async (data = {}) => {
     if (!data.toUserId) return;
+    clearMissedCallTimer(data.callId);
+    await markCallLog({
+      callId: data.callId,
+      callerId: data.fromUserId,
+      receiverId: data.toUserId,
+      status: "ended",
+      endedAt: new Date(),
+    });
     io.to(data.toUserId.toString()).emit("voice_call_ended", data);
   });
 
@@ -272,6 +355,7 @@ app.use("/api/subscription", subscriptionRouter);
 // app.post("/api/webhook/paystack", paystackWebhookHandler);
 app.use("/api/chat", chatRouter);
 app.use("/api/contact", contactRouter);
+app.use("/api/calls", callRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to Whoba Ogo Foundation");
