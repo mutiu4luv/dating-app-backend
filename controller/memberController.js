@@ -14,6 +14,30 @@ dayjs.extend(localizedFormat);
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "12h" });
 
+const calculateAgeFromDateOfBirth = (dateOfBirth) => {
+  if (!dateOfBirth) return null;
+
+  const birthDate = new Date(dateOfBirth);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const birthdayHasNotHappened =
+    today.getMonth() < birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() &&
+      today.getDate() < birthDate.getDate());
+
+  if (birthdayHasNotHappened) age -= 1;
+  return age;
+};
+
+const withDerivedAge = (member) => {
+  if (!member) return member;
+  const plain = typeof member.toObject === "function" ? member.toObject() : member;
+  const calculatedAge = calculateAgeFromDateOfBirth(plain.dateOfBirth);
+  return calculatedAge ? { ...plain, age: calculatedAge } : plain;
+};
+
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const tokenizeProfileText = (value) => {
@@ -179,6 +203,7 @@ exports.register = async (req, res) => {
   const {
     name,
     age,
+    dateOfBirth,
     gender,
     location,
     occupation,
@@ -206,11 +231,19 @@ exports.register = async (req, res) => {
     // 2️⃣ Hash password
     const hashed = await bcrypt.hash(password, 10);
 
+    const calculatedAge = calculateAgeFromDateOfBirth(dateOfBirth);
+    if (dateOfBirth && (calculatedAge < 18 || calculatedAge > 100)) {
+      return res.status(400).json({
+        message: "You must be at least 18 years old to register.",
+      });
+    }
+
     // 3️⃣ CREATE MEMBER (🔥 FIX IS HERE)
     const member = await Member.create({
       photo: photoUrl,
       name,
-      age: Number(age),
+      age: calculatedAge ?? Number(age),
+      dateOfBirth: dateOfBirth || undefined,
       gender,
       location,
       occupation,
@@ -275,6 +308,7 @@ exports.verifyAndCompleteRegistration = async (req, res) => {
   const {
     name,
     age,
+    dateOfBirth,
     gender,
     location,
     occupation,
@@ -295,10 +329,12 @@ exports.verifyAndCompleteRegistration = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const photoUrl = req.file?.path || "";
+    const calculatedAge = calculateAgeFromDateOfBirth(dateOfBirth);
     const member = await Member.create({
       photo: photoUrl,
       name,
-      age: Number(age),
+      age: calculatedAge ?? Number(age),
+      dateOfBirth: dateOfBirth || undefined,
       gender,
       location,
       occupation,
@@ -390,7 +426,7 @@ exports.getAllMembers = async (req, res) => {
     );
 
     const members = await Member.find().select("-password");
-    res.status(200).json(members);
+    res.status(200).json(members.map(withDerivedAge));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -405,7 +441,7 @@ exports.getChatDirectoryMembers = async (req, res) => {
       )
       .sort({ isOnline: -1, lastSeen: -1, createdAt: -1 });
 
-    res.status(200).json({ members });
+    res.status(200).json({ members: members.map(withDerivedAge) });
   } catch (error) {
     res
       .status(500)
@@ -473,7 +509,7 @@ exports.getPublicMemberProfile = async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    res.status(200).json({ member });
+    res.status(200).json({ member: withDerivedAge(member) });
   } catch (error) {
     res.status(500).json({
       message: "Failed to load member profile",
@@ -488,7 +524,7 @@ exports.getMemberById = async (req, res) => {
     if (!member) {
       return res.status(404).json({ error: "Member not found" });
     }
-    res.status(200).json(member);
+    res.status(200).json(withDerivedAge(member));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -515,6 +551,7 @@ exports.updateMember = async (req, res) => {
     const allowedFields = [
       "name",
       "age",
+      "dateOfBirth",
       "gender",
       "location",
       "occupation",
@@ -533,6 +570,17 @@ exports.updateMember = async (req, res) => {
       }
     });
 
+    if (req.body.dateOfBirth) {
+      const calculatedAge = calculateAgeFromDateOfBirth(req.body.dateOfBirth);
+      if (calculatedAge < 18 || calculatedAge > 100) {
+        return res.status(400).json({
+          message: "Users must be between 18 and 100 years old.",
+        });
+      }
+      updateData.dateOfBirth = req.body.dateOfBirth;
+      updateData.age = calculatedAge;
+    }
+
     if (req.file) {
       updateData.photo = req.file.path;
     }
@@ -546,7 +594,7 @@ exports.updateMember = async (req, res) => {
       return res.status(404).json({ error: "Member not found" });
     }
 
-    res.status(200).json(member);
+    res.status(200).json(withDerivedAge(member));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -827,7 +875,7 @@ exports.getProfile = async (req, res) => {
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
     }
-    res.status(200).json(member);
+    res.status(200).json(withDerivedAge(member));
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).json({ message: "Server error", error: error.message });

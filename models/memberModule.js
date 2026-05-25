@@ -36,6 +36,7 @@ const memberSchema = new mongoose.Schema(
     photo: { type: String, required: false },
     name: { type: String, required: true },
     age: { type: Number, required: true },
+    dateOfBirth: { type: Date },
     gender: { type: String, required: true },
     location: { type: String, required: true },
     occupation: { type: String, required: true },
