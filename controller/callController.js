@@ -118,7 +118,7 @@ exports.getMyCallLogs = async (req, res) => {
     })
       .populate("callerId", "name username photo")
       .populate("receiverId", "name username photo")
-      .sort({ createdAt: -1 })
+      .sort({ startedAt: -1, createdAt: -1 })
       .limit(80);
 
     return res.status(200).json({ logs });
@@ -145,7 +145,7 @@ exports.getCallLogsWithMember = async (req, res) => {
     })
       .populate("callerId", "name username photo")
       .populate("receiverId", "name username photo")
-      .sort({ createdAt: 1 })
+      .sort({ startedAt: 1, createdAt: 1 })
       .limit(120);
 
     return res.status(200).json({ logs });
