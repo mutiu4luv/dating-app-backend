@@ -358,14 +358,21 @@ exports.reactToMessage = async (req, res) => {
       return res.status(400).json({ message: "Deleted messages cannot be reacted to." });
     }
 
+    const existingReaction = (message.reactions || []).find(
+      (reaction) => reaction.userId.toString() === currentUserId
+    );
+
     message.reactions = (message.reactions || []).filter(
       (reaction) => reaction.userId.toString() !== currentUserId
     );
-    message.reactions.push({
-      userId: req.member._id,
-      emoji,
-      createdAt: new Date(),
-    });
+
+    if (existingReaction?.emoji !== emoji) {
+      message.reactions.push({
+        userId: req.member._id,
+        emoji,
+        createdAt: new Date(),
+      });
+    }
 
     await message.save();
 
