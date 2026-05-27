@@ -41,6 +41,10 @@ const handleCreate = async (data) => {
     return "Free";
   };
   user.subscriptionTier = mapPlanName(data.plan?.name || "");
+  if (user.subscriptionTier && user.subscriptionTier !== "Free") {
+    user.chatCycleStartedAt = new Date();
+    user.chatContactsThisCycle = [];
+  }
   user.paystackAuthorizationCode = data.authorization?.authorization_code || "";
   user.paystackStatus = data.status || "";
   user.paystackCustomerCode = data.customer?.customer_code || "";
@@ -69,6 +73,11 @@ const handleChargeSuccess = async (data) => {
   const user = await Member.findOne({ email: data.customer.email });
   if (!user) return;
 
+  const paidPlan = data.metadata?.plan;
+  if (["Basic", "Standard", "Premium"].includes(paidPlan)) {
+    user.subscriptionTier = paidPlan;
+  }
+
   user.transactionAmount = data.amount / 100;
   user.transactionStatus = data.status;
   user.transactionReference = data.reference;
@@ -81,6 +90,8 @@ const handleChargeSuccess = async (data) => {
     user.subscriptionExpiresAt = dayjs().add(30, "day").toDate();
     user.mergeCountThisCycle = 0;
     user.lastMergeReset = new Date();
+    user.chatCycleStartedAt = new Date();
+    user.chatContactsThisCycle = [];
   }
 
   await user.save();

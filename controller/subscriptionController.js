@@ -182,6 +182,8 @@ exports.confirmSubscriptionPayment = async (req, res) => {
     user.subscriptionExpiresAt = currentExpiry.add(30, "day").toDate();
     user.mergeCountThisCycle = 0;
     user.lastMergeReset = new Date();
+    user.chatCycleStartedAt = new Date();
+    user.chatContactsThisCycle = [];
     user.hasPaid = true;
     user.transactionAmount = transaction.amount;
     user.transactionStatus = transaction.status;
