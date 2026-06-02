@@ -18,6 +18,9 @@ const {
   checkCallAccessForSocket,
   markCallLog,
 } = require("./controller/callController.js");
+const {
+  cleanupExpiredStories,
+} = require("./controller/storyController.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -433,6 +436,12 @@ app.use("/api/calls", callRouter);
 app.get("/", (req, res) => {
   res.send("Hello Victor, welcome to Whoba Ogo Foundation");
 });
+
+setInterval(() => {
+  cleanupExpiredStories().catch((error) => {
+    console.error("Story cleanup failed:", error.message);
+  });
+}, 60 * 60 * 1000).unref();
 
 mongoose
   .connect(process.env.MONGO_URI, {

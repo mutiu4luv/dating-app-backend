@@ -5,6 +5,9 @@ const { sendOtpEmail } = require("../utility/sendOtpEmail.js");
 const Otp = require("../models/otp.js");
 const nodemailer = require("nodemailer");
 const dayjs = require("dayjs");
+const {
+  recordProfileViewByIds,
+} = require("./profileEngagementController");
 const relativeTime = require("dayjs/plugin/relativeTime");
 const localizedFormat = require("dayjs/plugin/localizedFormat");
 
@@ -170,7 +173,7 @@ const buildSuggestedMatch = (currentUser, candidate) => {
   if (activityScore.reason) reasons.push(activityScore.reason);
 
   if (hasActiveSubscription(candidate)) {
-    score += 5;
+    score += 22;
     reasons.push("Active subscription");
   }
 
@@ -186,6 +189,7 @@ const buildSuggestedMatch = (currentUser, candidate) => {
   return {
     ...candidate.toObject(),
     compatibilityScore: Math.min(score, 100),
+    subscriptionPriority: hasActiveSubscription(candidate) ? 1 : 0,
     compatibilityReasons: reasons.slice(0, 4),
     matchVector: {
       relationshipType: candidate.relationshipType,
@@ -472,6 +476,9 @@ exports.getSuggestedMembers = async (req, res) => {
     const suggestions = candidates
       .map((candidate) => buildSuggestedMatch(currentUser, candidate))
       .sort((a, b) => {
+        if (Boolean(b.subscriptionPriority) !== Boolean(a.subscriptionPriority)) {
+          return b.subscriptionPriority ? 1 : -1;
+        }
         if (b.compatibilityScore !== a.compatibilityScore) {
           return b.compatibilityScore - a.compatibilityScore;
         }
@@ -501,6 +508,7 @@ exports.getSuggestedMembers = async (req, res) => {
 
 exports.getPublicMemberProfile = async (req, res) => {
   try {
+    await recordProfileViewByIds(req.params.id, req.member?._id?.toString());
     const member = await Member.findById(req.params.id).select(
       publicSuggestionFields
     );

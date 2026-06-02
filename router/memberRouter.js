@@ -21,8 +21,19 @@ const {
   changePassword,
   getPublicMemberProfile,
 } = require("../controller/memberController");
+const {
+  recordProfileView,
+  toggleProfileLike,
+  getProfileEngagements,
+} = require("../controller/profileEngagementController");
+const {
+  createStory,
+  getStories,
+  getMyStory,
+} = require("../controller/storyController");
 const protect = require("../middleware/auth");
 const upload = require("../middleware/multer");
+const storyUpload = require("../middleware/storyUpload");
 // const { getSingleMember } = require("../controller/memberController.js");
 
 router.post("/register", upload.single("photo"), register);
@@ -33,6 +44,13 @@ router.post("/login", login);
 router.get("/profile", protect, getProfile);
 router.get("/chat-directory", protect, getChatDirectoryMembers);
 router.get("/suggested/:userId", protect, getSuggestedMembers);
+router.get("/stories/public", getStories);
+router.get("/stories", protect, getStories);
+router.get("/stories/me", protect, getMyStory);
+router.post("/stories", protect, storyUpload.single("storyImage"), createStory);
+router.post("/:id/view", protect, recordProfileView);
+router.post("/:id/like", protect, toggleProfileLike);
+router.get("/:id/engagements", protect, getProfileEngagements);
 router.get("/public-profile/:id", protect, getPublicMemberProfile);
 router.post("/change-password", protect, changePassword);
 router.get("/", protect, getAllMembers);
