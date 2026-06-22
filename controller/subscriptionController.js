@@ -400,7 +400,7 @@ exports.getAllSubscribers = async (req, res) => {
       .select(
         "photo name username email phoneNumber age gender location occupation relationshipType subscriptionTier subscriptionExpiresAt hasPaid isOnline lastSeen transactionAmount transactionStatus transactionReference createdAt updatedAt"
       )
-      .sort({ subscriptionExpiresAt: 1, createdAt: -1 });
+      .sort({ createdAt: -1, subscriptionExpiresAt: -1 });
 
     const data = subscribers.map((subscriber) => {
       const doc = subscriber.toObject();
