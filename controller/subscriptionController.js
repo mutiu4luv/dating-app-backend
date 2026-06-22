@@ -407,6 +407,9 @@ exports.getAllSubscribers = async (req, res) => {
       const expiresAt = doc.subscriptionExpiresAt
         ? new Date(doc.subscriptionExpiresAt)
         : null;
+      const expiredLabel = expiresAt
+        ? expiresAt.toLocaleDateString("en-GB")
+        : "";
 
       return {
         ...doc,
@@ -419,7 +422,7 @@ exports.getAllSubscribers = async (req, res) => {
           doc.subscriptionTier && doc.subscriptionTier !== "Free" && expiresAt
             ? expiresAt > now
               ? "Active"
-              : "Expired"
+              : `Paid but expired on ${expiredLabel}`
             : "Paid before",
       };
     });
