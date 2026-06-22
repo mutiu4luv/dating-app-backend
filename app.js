@@ -18,9 +18,7 @@ const {
   checkCallAccessForSocket,
   markCallLog,
 } = require("./controller/callController.js");
-const {
-  cleanupExpiredStories,
-} = require("./controller/storyController.js");
+const { cleanupExpiredStories } = require("./controller/storyController.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -227,12 +225,18 @@ io.on("connection", (socket) => {
 
   socket.on("typing_start", (data = {}) => {
     if (!data.room || !data.senderId || !data.receiverId) return;
-    socket.to(data.room).to(data.receiverId.toString()).emit("typing_start", data);
+    socket
+      .to(data.room)
+      .to(data.receiverId.toString())
+      .emit("typing_start", data);
   });
 
   socket.on("typing_stop", (data = {}) => {
     if (!data.room || !data.senderId || !data.receiverId) return;
-    socket.to(data.room).to(data.receiverId.toString()).emit("typing_stop", data);
+    socket
+      .to(data.room)
+      .to(data.receiverId.toString())
+      .emit("typing_stop", data);
   });
 
   socket.on("voice_call_offer", async (data = {}) => {
@@ -434,7 +438,29 @@ app.use("/api/contact", contactRouter);
 app.use("/api/calls", callRouter);
 
 app.get("/", (req, res) => {
-  res.send("Hello Victor, welcome to Whoba Ogo Foundation");
+  res.send("Hello Ezinne, Your Dating App API is running!");
+});
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled request error:", err);
+
+  const statusCode = err.statusCode || err.status || 500;
+  const message =
+    err?.message ||
+    err?.msg ||
+    (typeof err === "string" ? err : "Internal server error");
+
+  res.status(statusCode).json({
+    message,
+    error:
+      err && typeof err === "object"
+        ? {
+            name: err.name,
+            code: err.code,
+            status: err.status,
+          }
+        : undefined,
+  });
 });
 
 setInterval(() => {
@@ -452,6 +478,7 @@ mongoose
   .catch(() => console.log("❌ Database not connected"));
 
 const PORT = process.env.PORT || 7000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const HOST = process.env.HOST || "0.0.0.0";
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`);
 });
