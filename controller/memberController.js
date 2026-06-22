@@ -429,7 +429,7 @@ exports.getAllMembers = async (req, res) => {
       { $set: { isOnline: false } }
     );
 
-    const members = await Member.find().select("-password");
+    const members = await Member.find().select("-password").sort({ createdAt: -1 });
     res.status(200).json(members.map(withDerivedAge));
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -686,8 +686,12 @@ exports.getMembersByRelationshipType = async (req, res) => {
       // Both online or both offline → compare lastSeen
       const aLastSeen = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
       const bLastSeen = b.lastSeen ? new Date(b.lastSeen).getTime() : 0;
+      if (aLastSeen !== bLastSeen) return bLastSeen - aLastSeen;
 
-      return bLastSeen - aLastSeen; // most recent first
+      const aCreatedAt = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+      return bCreatedAt - aCreatedAt; // newest registrations first
     });
 
     // 6️⃣ Return results
