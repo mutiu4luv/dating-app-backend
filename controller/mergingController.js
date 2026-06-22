@@ -280,7 +280,7 @@ exports.mergeMembers = async (req, res) => {
     }
 
     const mergeLimits = {
-      Free: 10,
+      Free: 3,
       Basic: 20,
       Standard: 30,
       Premium: Infinity,
@@ -480,7 +480,7 @@ exports.getMergeStatuses = async (req, res) => {
         member.subscriptionExpiresAt > now
     );
     const mergeLimits = {
-      Free: 10,
+      Free: 3,
       Basic: 20,
       Standard: 30,
       Premium: Infinity,

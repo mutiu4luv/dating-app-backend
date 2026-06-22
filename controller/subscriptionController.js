@@ -50,7 +50,7 @@ exports.createSubscription = async (req, res) => {
 
     // Prevent re-subscription if still valid and limit reached
     const tierLimits = {
-      Free: 10,
+      Free: 3,
       Basic: 20,
       Standard: 30,
       Premium: Infinity,
