@@ -1,0 +1,9 @@
+{
+  "legacyWatch": true,
+  "ignore": [
+    "node_modules",
+    ".git",
+    "dist",
+    "**/*.zip"
+  ]
+}

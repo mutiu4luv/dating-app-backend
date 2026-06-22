@@ -93,6 +93,42 @@ exports.createStory = async (req, res) => {
   }
 };
 
+exports.deleteMyStory = async (req, res) => {
+  try {
+    const ownerId = req.member?._id?.toString();
+    if (!ownerId) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+
+    const stories = await Story.find({ ownerId });
+    if (!stories.length) {
+      return res.status(404).json({ message: "No active story found." });
+    }
+
+    await Promise.all(
+      stories.map(async (story) => {
+        if (story.imagePublicId) {
+          try {
+            await cloudinary.uploader.destroy(story.imagePublicId);
+          } catch (error) {
+            console.error("Story cloudinary delete failed:", error.message);
+          }
+        }
+      })
+    );
+
+    await Story.deleteMany({ ownerId });
+
+    return res.status(200).json({
+      message: "Story removed successfully.",
+      deletedCount: stories.length,
+    });
+  } catch (error) {
+    console.error("deleteMyStory failed:", error);
+    return res.status(500).json({ message: "Failed to delete story." });
+  }
+};
+
 exports.getStories = async (req, res) => {
   try {
     await cleanupExpiredStories();

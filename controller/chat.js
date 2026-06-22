@@ -3,7 +3,7 @@ const Member = require("../models/memberModule.js");
 const mongoose = require("mongoose");
 
 const CHAT_LIMITS = {
-  Free: 10,
+  Free: 3,
   Basic: 20,
   Standard: 30,
   Premium: Infinity,

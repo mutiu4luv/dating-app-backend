@@ -265,7 +265,7 @@ exports.mergeMembers = async (req, res) => {
         memberId2.toString()
       );
       const freeChatAvailable =
-        hasExistingChatContact || chatContactIds.length < 10;
+        hasExistingChatContact || chatContactIds.length < 3;
 
       return res.status(200).json({
         match: existingMerge,
@@ -498,13 +498,13 @@ exports.getMergeStatuses = async (req, res) => {
     const freeChatAvailable =
       effectiveTier === "Free" &&
       member2 &&
-      (hasExistingChatContact || chatContactIds.length < 10);
-    const chatLimit = effectiveTier === "Free" ? 10 : "plan";
+      (hasExistingChatContact || chatContactIds.length < 3);
+    const chatLimit = effectiveTier === "Free" ? 3 : "plan";
     const freeTierChatLimitReached =
       effectiveTier === "Free" &&
       member2 &&
       !hasExistingChatContact &&
-      chatContactIds.length >= 10;
+      chatContactIds.length >= 3;
     const canChat = Boolean(
       member.isAdmin || hasActiveSubscription || freeChatAvailable
     );

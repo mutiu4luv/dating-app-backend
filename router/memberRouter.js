@@ -28,6 +28,7 @@ const {
 } = require("../controller/profileEngagementController");
 const {
   createStory,
+  deleteMyStory,
   getStories,
   getMyStory,
 } = require("../controller/storyController");
@@ -48,6 +49,7 @@ router.get("/stories/public", getStories);
 router.get("/stories", protect, getStories);
 router.get("/stories/me", protect, getMyStory);
 router.post("/stories", protect, storyUpload.single("storyImage"), createStory);
+router.delete("/stories/me", protect, deleteMyStory);
 router.post("/:id/view", protect, recordProfileView);
 router.post("/:id/like", protect, toggleProfileLike);
 router.get("/:id/engagements", protect, getProfileEngagements);
